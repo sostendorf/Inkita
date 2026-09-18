@@ -551,65 +551,6 @@ fun SeriesDetailScreenV2(
                             onOpenReader(chapterId, page, sid, volumeId, fmt)
                         }
                     }
-                    // Queues every chapter/issue in the series. Kept self-contained rather
-                    // than reusing the overflow-menu version, whose format flags are local
-                    // to that closure.
-                    val downloadWholeSeries: () -> Unit = {
-                        val fmt = Format.fromId(detail?.series?.format)
-                        val singlePageFormat = fmt == Format.Pdf || fmt == Format.Image || fmt == Format.Archive
-                        if (fmt == null || (!singlePageFormat && fmt != Format.Epub)) {
-                            Toast
-                                .makeText(
-                                    context,
-                                    context.getString(net.dom53.inkita.R.string.general_not_implemented),
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                        } else {
-                            val queue =
-                                buildList {
-                                    detail?.detail?.volumes?.forEach { volume ->
-                                        volume.chapters?.forEach { chapter ->
-                                            add(chapter to (chapter.volumeId ?: volume.id))
-                                        }
-                                    }
-                                    detail?.detail?.chapters?.forEach { add(it to it.volumeId) }
-                                    detail?.detail?.specials?.forEach { add(it to it.volumeId) }
-                                    detail?.detail?.storylineChapters?.forEach { add(it to it.volumeId) }
-                                }.distinctBy { it.first.id }
-                                    .filter { singlePageFormat || (it.first.pages ?: 0) > 0 }
-                            if (queue.isEmpty()) {
-                                Toast
-                                    .makeText(
-                                        context,
-                                        context.getString(net.dom53.inkita.R.string.series_detail_pages_unavailable),
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                            } else {
-                                scope.launch {
-                                    val sid = detail?.series?.id ?: seriesId
-                                    queue.forEach { (chapter, volumeId) ->
-                                        val pages = if (singlePageFormat) 1 else chapter.pages ?: return@forEach
-                                        downloadManagerV2.enqueue(
-                                            DownloadRequestV2(
-                                                type = DownloadJobV2Entity.TYPE_CHAPTER,
-                                                format = formatKeyFor(detail?.series?.format),
-                                                seriesId = sid,
-                                                volumeId = volumeId,
-                                                chapterId = chapter.id,
-                                                pageCount = pages,
-                                            ),
-                                        )
-                                    }
-                                    Toast
-                                        .makeText(
-                                            context,
-                                            context.getString(net.dom53.inkita.R.string.download_queued),
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
-                                }
-                            }
-                        }
-                    }
                     Box(
                         modifier =
                             Modifier
@@ -700,9 +641,8 @@ fun SeriesDetailScreenV2(
                                             modifier = Modifier.weight(1f),
                                         )
                                         HeroIconButton(
-                                            icon = Icons.Filled.Download,
-                                            enabled = !offlineMode,
-                                            onClick = downloadWholeSeries,
+                                            icon = Icons.Filled.ZoomOutMap,
+                                            onClick = { coverExpanded = true },
                                             modifier = Modifier.weight(1f),
                                         )
                                     },
@@ -858,7 +798,7 @@ fun SeriesDetailScreenV2(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 tabs.forEach { tab ->
-                                    SectionChip(
+                                    SectionTab(
                                         label = tab.id.label,
                                         count = tab.count,
                                         selected = selectedTab == tab.id,
@@ -938,8 +878,12 @@ fun SeriesDetailScreenV2(
                                         chapterDownloadStates[chapter.id] = state
                                     }
                                 }
-                                ChapterCompactList(
+                                IssueGrid(
                                     chapters = chapters,
+                                    coverUrlFor = { chapter ->
+                                        chapterCoverUrl(config, chapter.id)
+                                            ?: series?.id?.let { seriesCoverUrl(config, it) }
+                                    },
                                     downloadStates = chapterDownloadStates,
                                     onChapterClick = onChapterClick@{ chapter, _ ->
                                         val isSingleFile =

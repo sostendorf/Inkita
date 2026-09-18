@@ -291,6 +291,11 @@
     <string name="reader_theme_gray">Gray</string>
     <!-- Series detail-->
     <string name="series_detail_tab_books">Volumes</string>
+    <string name="series_detail_issue_actions">Issue actions</string>
+    <string name="series_detail_mark_read">Mark as read</string>
+    <string name="series_detail_mark_unread">Mark as unread</string>
+    <string name="series_detail_download_issue">Download</string>
+    <string name="series_detail_delete_download">Delete download</string>
     <string name="series_detail_writers_title">Writer</string>
     <string name="series_detail_publication_title">Publication</string>
     <string name="series_detail_genres_title">Genres</string>

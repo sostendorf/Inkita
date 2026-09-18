@@ -79,6 +79,11 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.text.font.FontWeight
 
 internal enum class SeriesDetailTab {
     Books,
@@ -419,16 +424,34 @@ internal fun ChapterCompactList(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
-                    if (downloadState == DownloadState.Complete || downloadState == DownloadState.Partial) {
+                    // Downloading was previously swipe-only and the icon here was
+                    // decoration. It is now the control: download when the issue is
+                    // absent, delete when it is held locally.
+                    IconButton(
+                        onClick = { onToggleDownload(chapter, isDownloaded) },
+                        modifier = Modifier.size(32.dp),
+                    ) {
                         Icon(
                             imageVector =
-                                if (downloadState == DownloadState.Complete) {
-                                    Icons.Filled.DownloadDone
-                                } else {
-                                    Icons.Filled.Downloading
+                                when (downloadState) {
+                                    DownloadState.Complete -> Icons.Filled.Delete
+                                    DownloadState.Partial -> Icons.Filled.Downloading
+                                    else -> Icons.Filled.Download
                                 },
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            contentDescription =
+                                stringResource(
+                                    if (isDownloaded) {
+                                        net.dom53.inkita.R.string.series_detail_delete_download
+                                    } else {
+                                        net.dom53.inkita.R.string.series_detail_download_issue
+                                    },
+                                ),
+                            tint =
+                                if (isDownloaded) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -911,6 +934,268 @@ internal fun ChipGroup(
                     onClick = { onItemClick(id, label) },
                     label = { Text(label) },
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Tab header: label with its count in a pill, underlined when selected.
+ *
+ * Replaces the filled-chip treatment, which gave every tab equal visual weight
+ * and made the selected one read as a button rather than a position.
+ */
+@Composable
+internal fun SectionTab(
+    label: String,
+    count: Int?,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val contentColor =
+        if (selected) {
+            MaterialTheme.colorScheme.onBackground
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier =
+            Modifier
+                .clickable(onClick = onClick)
+                .padding(horizontal = 4.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = contentColor,
+                maxLines = 1,
+            )
+            if (count != null) {
+                Box(
+                    modifier =
+                        Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        text = count.toString(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = contentColor,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+        Box(
+            modifier =
+                Modifier
+                    .height(3.dp)
+                    .width(if (selected) 72.dp else 0.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(
+                        if (selected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            Color.Transparent
+                        },
+                    ),
+        )
+    }
+}
+
+/**
+ * Issues as cover art rather than text rows: two per row, each with its label
+ * and an overflow menu carrying the per-issue actions.
+ *
+ * Laid out as manual rows instead of a lazy grid because this sits inside the
+ * detail screen's vertical scroll, and nesting a second vertical scroller there
+ * breaks measurement.
+ */
+@Composable
+internal fun IssueGrid(
+    chapters: List<net.dom53.inkita.data.api.dto.ChapterDto>,
+    coverUrlFor: (net.dom53.inkita.data.api.dto.ChapterDto) -> String?,
+    downloadStates: Map<Int, DownloadState> = emptyMap(),
+    onChapterClick: (net.dom53.inkita.data.api.dto.ChapterDto, Int) -> Unit = { _, _ -> },
+    onToggleDownload: (net.dom53.inkita.data.api.dto.ChapterDto, Boolean) -> Unit = { _, _ -> },
+    onUpdateProgress: (net.dom53.inkita.data.api.dto.ChapterDto, Int) -> Unit = { _, _ -> },
+) {
+    if (chapters.isEmpty()) return
+    val indexed = chapters.withIndex().toList()
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        indexed.chunked(2).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                row.forEach { (index, chapter) ->
+                    IssueCard(
+                        chapter = chapter,
+                        index = index,
+                        coverUrl = coverUrlFor(chapter),
+                        downloadState = downloadStates[chapter.id] ?: DownloadState.None,
+                        onClick = { onChapterClick(chapter, index) },
+                        onToggleDownload = onToggleDownload,
+                        onUpdateProgress = onUpdateProgress,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                // Keeps a lone trailing card at half width instead of stretching it.
+                if (row.size == 1) {
+                    Box(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun IssueCard(
+    chapter: net.dom53.inkita.data.api.dto.ChapterDto,
+    index: Int,
+    coverUrl: String?,
+    downloadState: DownloadState,
+    onClick: () -> Unit,
+    onToggleDownload: (net.dom53.inkita.data.api.dto.ChapterDto, Boolean) -> Unit,
+    onUpdateProgress: (net.dom53.inkita.data.api.dto.ChapterDto, Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pagesRead = chapter.pagesRead ?: 0
+    val pagesTotal = chapter.pages ?: 0
+    val isRead = pagesTotal > 0 && pagesRead >= pagesTotal
+    val isPartiallyRead = pagesRead in 1 until pagesTotal
+    val isDownloaded = downloadState == DownloadState.Complete || downloadState == DownloadState.Partial
+    val label = stringResource(R.string.series_detail_chapter_fallback, index + 1)
+    var menuOpen by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(10.dp)
+
+    Column(
+        modifier =
+            modifier
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(2f / 3f)
+                    .clickable(onClick = onClick),
+        ) {
+            AsyncImage(
+                model = coverUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            // A read issue is dimmed so the unread ones stand out in a long grid.
+            if (isRead) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.45f)),
+                )
+            }
+            if (isDownloaded) {
+                Icon(
+                    imageVector = Icons.Filled.DownloadDone,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                            .padding(3.dp)
+                            .size(14.dp),
+                )
+            }
+            if (isPartiallyRead) {
+                Box(
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth(pagesRead.toFloat() / pagesTotal.toFloat())
+                            .height(3.dp)
+                            .background(MaterialTheme.colorScheme.primary),
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color =
+                    if (isRead) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Box {
+                IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = Icons.Filled.MoreVert,
+                        contentDescription = stringResource(R.string.series_detail_issue_actions),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                stringResource(
+                                    if (isRead) {
+                                        R.string.series_detail_mark_unread
+                                    } else {
+                                        R.string.series_detail_mark_read
+                                    },
+                                ),
+                            )
+                        },
+                        onClick = {
+                            menuOpen = false
+                            onUpdateProgress(chapter, if (isRead) 0 else pagesTotal)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                stringResource(
+                                    if (isDownloaded) {
+                                        R.string.series_detail_delete_download
+                                    } else {
+                                        R.string.series_detail_download_issue
+                                    },
+                                ),
+                            )
+                        },
+                        onClick = {
+                            menuOpen = false
+                            onToggleDownload(chapter, isDownloaded)
+                        },
+                    )
+                }
             }
         }
     }
