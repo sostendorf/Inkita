@@ -83,6 +83,16 @@ class LibraryV2ViewModel(
      * selection first, which is what makes [loadLibrarySeries] issue the
      * unfiltered query instead of a per-library one.
      */
+    /**
+     * Narrows All Series to one kind of library, or clears the filter when null.
+     * Kavita has no "comic" flag on a series, so this resolves to the ids of the
+     * libraries of that type and filters on those.
+     */
+    fun selectLibraryType(type: net.dom53.inkita.domain.model.LibraryType?) {
+        _state.update { it.copy(selectedLibraryType = type) }
+        ensureAllSeries()
+    }
+
     fun ensureAllSeries() {
         _state.update {
             it.copy(
@@ -705,7 +715,14 @@ class LibraryV2ViewModel(
             val result =
                 runCatching {
                     if (libraryId == null) {
-                        seriesRepository.getAllSeries(pageNumber, 25)
+                        val type = _state.value.selectedLibraryType
+                        val ids =
+                            if (type == null) {
+                                emptyList()
+                            } else {
+                                _state.value.libraries.filter { lib -> type.matches(lib.type) }.map { lib -> lib.id }
+                            }
+                        seriesRepository.getAllSeries(pageNumber, 25, ids)
                     } else {
                         seriesRepository.getSeriesForLibrary(libraryId, pageNumber, 25)
                     }

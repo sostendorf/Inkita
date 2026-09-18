@@ -92,6 +92,10 @@ import net.dom53.inkita.ui.common.readingListCoverUrl
 import net.dom53.inkita.ui.common.seriesCoverUrl
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items as rowItems
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
 
 @Composable
 fun LibraryV2Screen(
@@ -129,6 +133,7 @@ fun LibraryV2Screen(
         )
     val uiState by viewModel.state.collectAsState()
     var presetApplied by remember { mutableStateOf(false) }
+    var showTypeFilter by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialCollectionId) {
         if (presetApplied) return@LaunchedEffect
@@ -354,6 +359,51 @@ fun LibraryV2Screen(
                     text = topTitle,
                     style = MaterialTheme.typography.titleMedium,
                 )
+                // Kavita has no per-series "comic" flag, so this filters by the
+                // type of the library a series lives in.
+                if (uiState.selectedSection == LibraryV2Section.LibrarySeries && uiState.selectedLibraryId == null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box {
+                        TextButton(
+                            onClick = { showTypeFilter = true },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        ) {
+                            Text(
+                                text = uiState.selectedLibraryType?.label ?: stringResource(R.string.library_filter_all),
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                            Icon(
+                                imageVector = Icons.Filled.ArrowDropDown,
+                                contentDescription = stringResource(R.string.library_filter_type),
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showTypeFilter,
+                            onDismissRequest = { showTypeFilter = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.library_filter_all)) },
+                                onClick = {
+                                    showTypeFilter = false
+                                    viewModel.selectLibraryType(null)
+                                },
+                            )
+                            // Only offer a type the server actually has libraries for.
+                            net.dom53.inkita.domain.model.LibraryType.entries
+                                .filter { type -> uiState.libraries.any { type.matches(it.type) } }
+                                .forEach { type ->
+                                    DropdownMenuItem(
+                                        text = { Text(type.label) },
+                                        onClick = {
+                                            showTypeFilter = false
+                                            viewModel.selectLibraryType(type)
+                                        },
+                                    )
+                                }
+                        }
+                    }
+                }
             }
             when (uiState.selectedSection) {
                 LibraryV2Section.Home -> {

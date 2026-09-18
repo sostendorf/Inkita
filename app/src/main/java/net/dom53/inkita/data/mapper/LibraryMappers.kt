@@ -7,4 +7,5 @@ fun LibraryDto.toDomain(): Library =
     Library(
         id = id,
         name = name.orEmpty(),
+        type = type,
     )

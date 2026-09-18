@@ -52,6 +52,8 @@ data class LibraryV2UiState(
     val isPeopleLoadingMore: Boolean = false,
     val selectedLibraryId: Int? = null,
     val selectedLibraryName: String? = null,
+    /** Library-type filter for the All Series view; null means every type. */
+    val selectedLibraryType: net.dom53.inkita.domain.model.LibraryType? = null,
     val librarySeries: List<net.dom53.inkita.domain.model.Series> = emptyList(),
     val isLibrarySeriesLoading: Boolean = false,
     val isLibrarySeriesLoadingMore: Boolean = false,

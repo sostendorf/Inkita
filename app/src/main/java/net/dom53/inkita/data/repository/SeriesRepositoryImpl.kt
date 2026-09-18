@@ -359,6 +359,7 @@ class SeriesRepositoryImpl(
     override suspend fun getAllSeries(
         pageNumber: Int,
         pageSize: Int,
+        libraryIds: List<Int>,
     ): List<Series> {
         val config = appPreferences.configFlow.first()
 
@@ -376,12 +377,25 @@ class SeriesRepositoryImpl(
                 apiKey = config.apiKey,
             )
 
-        // No statements at all: an unfiltered query across every library.
+        // No statements means every library; a library list narrows it to those.
+        val statements =
+            if (libraryIds.isEmpty()) {
+                emptyList()
+            } else {
+                listOf(
+                    net.dom53.inkita.data.api.dto.FilterStatementDto(
+                        field = 19,
+                        value = libraryIds.joinToString(","),
+                        // 7 = Contains, which accepts the comma-separated id list.
+                        comparison = 7,
+                    ),
+                )
+            }
         val filter =
             FilterV2Dto(
                 id = null,
                 name = null,
-                statements = emptyList(),
+                statements = statements,
                 combination = 1,
                 sortOptions =
                     SortOptionDto(

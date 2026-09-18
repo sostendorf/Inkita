@@ -51,5 +51,7 @@ interface SeriesRepository {
     suspend fun getAllSeries(
         pageNumber: Int,
         pageSize: Int,
+        /** Restrict to these libraries; empty means every library. */
+        libraryIds: List<Int> = emptyList(),
     ): List<Series>
 }
