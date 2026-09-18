@@ -11,41 +11,71 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+/**
+ * Dark scheme for the library. Three background tiers (background → surface →
+ * surfaceContainerHigh) give cards something to lift off, which is what makes a
+ * wall of cover art read as a grid rather than a collage.
+ */
 private val DarkColorScheme =
     darkColorScheme(
-        primary = DarkAccent,
-        secondary = DarkAccent,
-        tertiary = DarkAccent,
-        background = DarkBg,
-        surface = DarkSurface,
+        primary = ShelfPrimary,
         onPrimary = Color.White,
+        primaryContainer = ShelfPrimary,
+        onPrimaryContainer = Color.White,
+        secondary = ShelfSecondary,
         onSecondary = Color.White,
-        onTertiary = Color.White,
-        onBackground = DarkOnSurface,
-        onSurface = DarkOnSurface,
+        secondaryContainer = ShelfSurfaceRaised,
+        onSecondaryContainer = ShelfOnSurface,
+        tertiary = ShelfAccent,
+        onTertiary = Color(0xFF3A1F14),
+        background = ShelfBackground,
+        onBackground = ShelfOnSurface,
+        surface = ShelfSurface,
+        onSurface = ShelfOnSurface,
+        surfaceVariant = ShelfSurfaceRaised,
+        onSurfaceVariant = ShelfOnSurfaceMuted,
+        surfaceContainerLowest = ShelfBackground,
+        surfaceContainerLow = ShelfSurface,
+        surfaceContainer = ShelfSurface,
+        surfaceContainerHigh = ShelfSurfaceRaised,
+        surfaceContainerHighest = ShelfSurfaceRaised,
+        outline = ShelfOutline,
+        outlineVariant = ShelfOutline,
+        error = ShelfError,
+        onError = Color.White,
+        scrim = Color.Black,
     )
 
 private val LightColorScheme =
     lightColorScheme(
-        primary = Purple40,
-        secondary = PurpleGrey40,
-        tertiary = Pink40,
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-     */
+        primary = ShelfLightPrimary,
+        onPrimary = Color.White,
+        secondary = ShelfSecondary,
+        onSecondary = Color.White,
+        tertiary = ShelfAccent,
+        background = ShelfLightBackground,
+        onBackground = ShelfLightOnSurface,
+        surface = ShelfLightSurface,
+        onSurface = ShelfLightOnSurface,
+        surfaceVariant = ShelfLightSurfaceRaised,
+        onSurfaceVariant = ShelfLightOnSurfaceMuted,
+        surfaceContainerLowest = ShelfLightSurface,
+        surfaceContainerLow = ShelfLightSurface,
+        surfaceContainer = ShelfLightSurfaceRaised,
+        surfaceContainerHigh = ShelfLightSurfaceRaised,
+        surfaceContainerHighest = ShelfLightSurfaceRaised,
+        outline = ShelfLightOutline,
+        outlineVariant = ShelfLightOutline,
+        error = ShelfError,
+        onError = Color.White,
     )
 
 @Composable
 fun InkitaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // Wallpaper-derived color is off by default: the point of this fork is a
+    // consistent dark library, not one that changes with the home screen.
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme =

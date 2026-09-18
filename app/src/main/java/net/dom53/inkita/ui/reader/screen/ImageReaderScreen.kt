@@ -46,5 +46,7 @@ fun ImageReaderScreen(
         onNavigateToChapter = onNavigateToChapter,
         bottomBarContent = bottomBarContent,
         settingsContent = settingsContent,
+        // Comics open full-bleed with no chrome; a tap in the middle brings it back.
+        initialOverlayVisible = false,
     )
 }

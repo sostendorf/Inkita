@@ -2114,6 +2114,8 @@ private fun VolumeGridRow(
                         }
                     }
                     if ((volume.pagesRead ?: 0) == 0) {
+                        // Read colour outside the draw scope: MaterialTheme is composable-only.
+                        val cornerFlagColor = MaterialTheme.colorScheme.primary
                         Canvas(
                             modifier =
                                 Modifier
@@ -2130,7 +2132,7 @@ private fun VolumeGridRow(
                                 }
                             drawPath(
                                 path = path,
-                                color = Color(0xFFE91E63),
+                                color = cornerFlagColor,
                             )
                         }
                     }
@@ -2247,6 +2249,8 @@ private fun SpecialsGridRow(
                     }
                     val pagesRead = chapter.pagesRead ?: 0
                     if (pagesRead == 0) {
+                        // Read colour outside the draw scope: MaterialTheme is composable-only.
+                        val cornerFlagColor = MaterialTheme.colorScheme.primary
                         Canvas(
                             modifier =
                                 Modifier
@@ -2263,7 +2267,7 @@ private fun SpecialsGridRow(
                                 }
                             drawPath(
                                 path = path,
-                                color = Color(0xFFE91E63),
+                                color = cornerFlagColor,
                             )
                         }
                     }

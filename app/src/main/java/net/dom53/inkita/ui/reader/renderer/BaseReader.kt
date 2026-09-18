@@ -32,6 +32,12 @@ data class ReaderRenderParams(
     val pendingScrollY: Int?,
     val pendingScrollId: String?,
     val imageReaderMode: ImageReaderMode,
+    /**
+     * Resolves the image source (remote URL or local file path) for an arbitrary page index.
+     * Cheap: hits the downloads DB or builds a Kavita URL, it does not fetch bytes.
+     * Used by the paged comic reader to render neighbouring pages ahead of time.
+     */
+    val pageUrlProvider: suspend (Int) -> String? = { null },
 )
 
 data class ReaderRenderCallbacks(
@@ -43,4 +49,6 @@ data class ReaderRenderCallbacks(
     val onWebViewReady: (WebView) -> Unit,
     val onScrollIdle: (String?) -> Unit,
     val onPdfPageChanged: (Int, Int) -> Unit,
+    /** Reports the page the comic pager has settled on, so progress syncs without a reload. */
+    val onPageSettled: (Int) -> Unit = {},
 )

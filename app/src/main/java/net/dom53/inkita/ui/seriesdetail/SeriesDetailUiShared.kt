@@ -205,6 +205,8 @@ internal fun ChapterListV2(
                         }
                     }
                     if (pagesRead == 0) {
+                        // Read colour outside the draw scope: MaterialTheme is composable-only.
+                        val cornerFlagColor = MaterialTheme.colorScheme.primary
                         Canvas(
                             modifier =
                                 Modifier
@@ -221,7 +223,7 @@ internal fun ChapterListV2(
                                 }
                             drawPath(
                                 path = path,
-                                color = Color(0xFFE91E63),
+                                color = cornerFlagColor,
                             )
                         }
                     }

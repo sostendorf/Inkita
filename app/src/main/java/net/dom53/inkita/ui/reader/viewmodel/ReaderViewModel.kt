@@ -96,6 +96,29 @@ abstract class BaseReaderViewModel(
         _state.update { it.copy(error = null) }
     }
 
+    /**
+     * Resolves the image source for [index] without touching reader state.
+     * Backed by the downloads table or a constructed Kavita URL, so it is cheap
+     * enough to call for the pages on either side of the one being read.
+     */
+    open suspend fun resolvePageUrl(index: Int): String? {
+        if (index < 0) return null
+        val total = _state.value.pageCount
+        if (total > 0 && index >= total) return null
+        return runCatching { reader.loadPage(chapterId, index) }.getOrNull()?.imageUrl
+    }
+
+    /**
+     * Called when the comic pager settles on a page. The image is already on screen,
+     * so this only moves the index and syncs progress — no reload, no loading spinner.
+     */
+    open fun onPagerSettled(index: Int) {
+        val current = _state.value
+        if (current.pageIndex == index) return
+        _state.update { it.copy(pageIndex = index, isLoading = false, error = null) }
+        updateProgress(index)
+    }
+
     protected open fun updateProgress(
         pageIndex: Int,
         bookScrollId: String? = null,

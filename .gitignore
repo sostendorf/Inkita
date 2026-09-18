@@ -251,3 +251,6 @@ hs_err_pid*
 openapi.json
 /keystore.b64
 /app/src/main/java/net/dom53/inkita/data/kavita-openapi.json
+
+# Local Android SDK location written by the cloud build session
+local.properties

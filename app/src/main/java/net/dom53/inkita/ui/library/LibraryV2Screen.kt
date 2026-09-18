@@ -80,6 +80,8 @@ import net.dom53.inkita.domain.repository.ReadingListRepository
 import net.dom53.inkita.domain.repository.SeriesRepository
 import net.dom53.inkita.ui.common.DownloadState
 import net.dom53.inkita.ui.common.DownloadStateBadge
+import net.dom53.inkita.ui.common.ShelfCard
+import net.dom53.inkita.ui.common.ShelfSectionHeader
 import net.dom53.inkita.ui.common.collectionCoverUrl
 import net.dom53.inkita.ui.common.personCoverUrl
 import net.dom53.inkita.ui.common.readingListCoverUrl
@@ -152,7 +154,7 @@ fun LibraryV2Screen(
                     Modifier
                         .fillMaxWidth(0.75f)
                         .fillMaxHeight()
-                        .background(if (showDrawerDebug) Color.Red else Color(0xFF121212))
+                        .background(if (showDrawerDebug) Color.Red else MaterialTheme.colorScheme.surface)
                         .onSizeChanged { drawerWidthPx = it.width }
                         .alpha(drawerAlpha)
                         .padding(16.dp)
@@ -482,11 +484,8 @@ private fun HomeSection(
     showDownloadBadges: Boolean,
     onOpenSeries: (Int) -> Unit,
 ) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-    )
-    Spacer(modifier = Modifier.height(8.dp))
+    ShelfSectionHeader(title = title)
+    Spacer(modifier = Modifier.height(10.dp))
     Row(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -516,49 +515,21 @@ private fun SeriesCard(
     onOpenSeries: (Int) -> Unit,
 ) {
     val imageUrl = item.localThumbPath ?: seriesCoverUrl(config, item.id)
-    Column(
-        modifier =
-            Modifier
-                .width(120.dp)
-                .padding(bottom = 4.dp)
-                .clickable { onOpenSeries(item.id) },
+    ShelfCard(
+        imageUrl = imageUrl,
+        title = item.title,
+        onClick = { onOpenSeries(item.id) },
+        modifier = Modifier.width(132.dp),
     ) {
-        Box {
-            AsyncImage(
-                model =
-                    ImageRequest
-                        .Builder(LocalContext.current)
-                        .data(imageUrl)
-                        .crossfade(true)
-                        .build(),
-                contentDescription = null,
+        if (showDownloadBadges) {
+            DownloadStateBadge(
+                state = downloadState,
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .height(170.dp)
-                        .clip(
-                            androidx.compose.foundation.shape
-                                .RoundedCornerShape(8.dp),
-                        ),
-                contentScale = ContentScale.Crop,
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 6.dp, bottom = 6.dp),
             )
-            if (showDownloadBadges) {
-                DownloadStateBadge(
-                    state = downloadState,
-                    modifier =
-                        Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(end = 6.dp, bottom = 10.dp),
-                )
-            }
         }
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = item.title,
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }
 
@@ -606,7 +577,7 @@ private fun WantToReadGrid(
 
             else -> {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    columns = GridCells.Adaptive(minSize = 116.dp),
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -636,48 +607,20 @@ private fun WantToReadCard(
     onOpenSeries: (Int) -> Unit,
 ) {
     val imageUrl = seriesCoverUrl(config, series.id)
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable { onOpenSeries(series.id) },
+    ShelfCard(
+        imageUrl = imageUrl,
+        title = series.name.ifBlank { "Series ${series.id}" },
+        onClick = { onOpenSeries(series.id) },
     ) {
-        Box {
-            AsyncImage(
-                model =
-                    ImageRequest
-                        .Builder(LocalContext.current)
-                        .data(imageUrl)
-                        .crossfade(true)
-                        .build(),
-                contentDescription = null,
+        if (showDownloadBadges) {
+            DownloadStateBadge(
+                state = downloadState,
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
-                        .clip(
-                            androidx.compose.foundation.shape
-                                .RoundedCornerShape(8.dp),
-                        ),
-                contentScale = ContentScale.Crop,
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 6.dp, bottom = 6.dp),
             )
-            if (showDownloadBadges) {
-                DownloadStateBadge(
-                    state = downloadState,
-                    modifier =
-                        Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(end = 6.dp, bottom = 10.dp),
-                )
-            }
         }
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = series.name.ifBlank { "Series ${series.id}" },
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }
 
@@ -723,7 +666,7 @@ private fun CollectionsGrid(
 
             else -> {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    columns = GridCells.Adaptive(minSize = 116.dp),
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -749,37 +692,11 @@ private fun CollectionCard(
     onSelect: (net.dom53.inkita.domain.model.Collection) -> Unit,
 ) {
     val imageUrl = collectionCoverUrl(config, collection.id)
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable { onSelect(collection) },
-    ) {
-        AsyncImage(
-            model =
-                ImageRequest
-                    .Builder(LocalContext.current)
-                    .data(imageUrl)
-                    .crossfade(true)
-                    .build(),
-            contentDescription = null,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(160.dp)
-                    .clip(
-                        androidx.compose.foundation.shape
-                            .RoundedCornerShape(8.dp),
-                    ),
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = collection.name.ifBlank { "Collection ${collection.id}" },
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+    ShelfCard(
+        imageUrl = imageUrl,
+        title = collection.name.ifBlank { "Collection ${collection.id}" },
+        onClick = { onSelect(collection) },
+    )
 }
 
 @Composable
@@ -864,7 +781,7 @@ private fun ReadingListGrid(
 
             else -> {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    columns = GridCells.Adaptive(minSize = 116.dp),
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -889,41 +806,15 @@ private fun ReadingListCard(
 ) {
     val context = LocalContext.current
     val imageUrl = readingListCoverUrl(config, readingList.id)
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable {
-                    android.widget.Toast
-                        .makeText(context, "Not implemented yet", android.widget.Toast.LENGTH_SHORT)
-                        .show()
-                },
-    ) {
-        AsyncImage(
-            model =
-                ImageRequest
-                    .Builder(LocalContext.current)
-                    .data(imageUrl)
-                    .crossfade(true)
-                    .build(),
-            contentDescription = null,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(160.dp)
-                    .clip(
-                        androidx.compose.foundation.shape
-                            .RoundedCornerShape(8.dp),
-                    ),
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = readingList.title.ifBlank { "Reading List ${readingList.id}" },
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+    ShelfCard(
+        imageUrl = imageUrl,
+        title = readingList.title.ifBlank { "Reading List ${readingList.id}" },
+        onClick = {
+            android.widget.Toast
+                .makeText(context, "Not implemented yet", android.widget.Toast.LENGTH_SHORT)
+                .show()
+        },
+    )
 }
 
 @Composable
@@ -983,7 +874,7 @@ private fun PeopleGrid(
 
             else -> {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    columns = GridCells.Adaptive(minSize = 116.dp),
                     modifier = Modifier.fillMaxSize(),
                     state = gridState,
                     contentPadding = PaddingValues(12.dp),
@@ -1141,7 +1032,7 @@ private fun LibrarySeriesGrid(
 
                 else -> {
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
+                        columns = GridCells.Adaptive(minSize = 116.dp),
                         modifier = Modifier.fillMaxSize(),
                         state = gridState,
                         contentPadding = PaddingValues(12.dp),

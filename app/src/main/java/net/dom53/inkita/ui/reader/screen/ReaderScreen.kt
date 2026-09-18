@@ -182,6 +182,11 @@ internal fun BaseReaderScreen(
     bottomBarContent: (@Composable (ReaderBottomBarState, ReaderBottomBarCallbacks) -> Unit)? = null,
     settingsContent: (@Composable (ReaderSettingsState, ReaderSettingsCallbacks) -> Unit)? = null,
     overlayExtras: @Composable BoxScope.() -> Unit = {},
+    /**
+     * Whether the top/bottom chrome is showing when the reader opens.
+     * Comics open clean — nothing over the artwork until the middle of the page is tapped.
+     */
+    initialOverlayVisible: Boolean = true,
 ) {
     val uiState by readerViewModel.state.collectAsState()
     val context = LocalContext.current
@@ -214,7 +219,7 @@ internal fun BaseReaderScreen(
     var pendingNextChapter by remember { mutableStateOf<net.dom53.inkita.domain.model.ReaderChapterNav?>(null) }
     val scope = rememberCoroutineScope()
     val activity = LocalView.current.context as? Activity
-    var showOverlay by remember { mutableStateOf(true) }
+    var showOverlay by remember { mutableStateOf(initialOverlayVisible) }
     var showSettingsPanel by remember { mutableStateOf(false) }
     var selectedSettingsTab by remember { mutableStateOf(ReaderSettingsTab.Font) }
     val selectedFont = fontOptions.firstOrNull { it.id == fontFamilyId } ?: readerFontOptions.first()
@@ -351,6 +356,7 @@ internal fun BaseReaderScreen(
                     pendingScrollY = pendingScrollY,
                     pendingScrollId = pendingScrollId,
                     imageReaderMode = readerPrefs.imageReaderMode,
+                    pageUrlProvider = { index -> readerViewModel.resolvePageUrl(index) },
                 ),
             callbacks =
                 ReaderRenderCallbacks(
@@ -370,6 +376,7 @@ internal fun BaseReaderScreen(
                     onPdfPageChanged = { idx, count ->
                         (readerViewModel as? PdfReaderViewModel)?.setPdfPageIndex(idx, count)
                     },
+                    onPageSettled = { index -> readerViewModel.onPagerSettled(index) },
                 ),
         )
 

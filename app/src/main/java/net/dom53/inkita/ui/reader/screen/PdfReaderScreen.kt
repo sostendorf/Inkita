@@ -70,5 +70,7 @@ fun PdfReaderScreen(
         bottomBarContent = bottomBarContent,
         settingsContent = null,
         overlayExtras = overlayExtras,
+        // PDFs are read as artwork here too — open clean, tap the middle for chrome.
+        initialOverlayVisible = false,
     )
 }
