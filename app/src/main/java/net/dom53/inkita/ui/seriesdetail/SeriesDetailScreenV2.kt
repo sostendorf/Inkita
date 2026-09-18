@@ -118,8 +118,21 @@ import androidx.compose.ui.text.style.TextAlign
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.filled.ArrowDropDown
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
+/*
+ * NOTE: SeriesDetailScreenV2 below is ~1800 lines and carries most of this
+ * screen's state and callbacks inline. It was already far past detekt's default
+ * thresholds before this fork, and each feature added here has pushed it
+ * further; the thresholds in config/detekt/detekt.yml have been raised to match
+ * rather than fixed. The cure is extracting the per-tab sections (volumes,
+ * issues, specials, related) and their callbacks into their own composables.
+ */
+
+/** How many issues each "jump to" block covers. */
+private const val JUMP_BLOCK = 20
+
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun SeriesDetailScreenV2(
@@ -202,6 +215,8 @@ fun SeriesDetailScreenV2(
             .observeItemsForSeries(seriesId)
             .collectAsState(initial = emptyList())
     val hasDetail = uiState.detail != null
+    var showJumpMenu by remember { mutableStateOf(false) }
+    var jumpToIssueIndex by remember { mutableStateOf<Int?>(null) }
     val isRefreshing = uiState.isLoading && hasDetail
     val pullRefreshState =
         rememberPullRefreshState(
@@ -588,22 +603,25 @@ fun SeriesDetailScreenV2(
                     val heroReaderProgress = detail?.readerProgress
                     val heroReadLabel =
                         if (heroContinuePoint != null && detail?.hasProgress == true) {
-                            val page = (heroContinuePoint.pagesRead ?: 0) + 1
-                            val volId = heroReaderProgress?.volumeId ?: heroContinuePoint.volumeId
-                            val volumeNumber =
-                                detail
-                                    ?.detail
-                                    ?.volumes
-                                    ?.firstOrNull { it.id == volId }
-                                    ?.let { volumeNumberText(it) }
-                            if (volumeNumber != null) {
+                            // The issue you are on is more use than the page you stopped at.
+                            val issueNumber =
+                                heroContinuePoint.number?.takeIf { it.isNotBlank() }
+                                    ?: heroContinuePoint.range?.takeIf { it.isNotBlank() }
+                            if (issueNumber != null) {
                                 stringResource(
-                                    id = net.dom53.inkita.R.string.series_detail_continue_vol_ch,
-                                    volumeNumber,
-                                    page,
+                                    id =
+                                        if (Format.fromId(series?.format) == Format.Epub) {
+                                            net.dom53.inkita.R.string.series_detail_continue_chapter
+                                        } else {
+                                            net.dom53.inkita.R.string.series_detail_continue_issue
+                                        },
+                                    issueNumber,
                                 )
                             } else {
-                                stringResource(id = net.dom53.inkita.R.string.series_detail_continue_ch, page)
+                                stringResource(
+                                    id = net.dom53.inkita.R.string.series_detail_continue_ch,
+                                    (heroContinuePoint.pagesRead ?: 0) + 1,
+                                )
                             }
                         } else {
                             stringResource(id = net.dom53.inkita.R.string.series_detail_start_reading)
@@ -850,7 +868,45 @@ fun SeriesDetailScreenV2(
                                         onClick = { selectedTab = tab.id },
                                     )
                                 }
+                                // Long runs of issues are tedious to scroll; this jumps
+                                // to a block of them without leaving the page.
+                                val jumpTarget = detail?.detail?.chapters.orEmpty()
+                                if (selectedTab == SeriesDetailTab.Chapters && jumpTarget.size > JUMP_BLOCK) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Box {
+                                        androidx.compose.material3.TextButton(
+                                            onClick = { showJumpMenu = true },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        ) {
+                                            Text(
+                                                text = stringResource(net.dom53.inkita.R.string.series_detail_jump_to),
+                                                style = MaterialTheme.typography.labelMedium,
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Filled.ArrowDropDown,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                        }
+                                        DropdownMenu(
+                                            expanded = showJumpMenu,
+                                            onDismissRequest = { showJumpMenu = false },
+                                        ) {
+                                            jumpTarget.indices.step(JUMP_BLOCK).forEach { start ->
+                                                val end = minOf(start + JUMP_BLOCK, jumpTarget.size)
+                                                DropdownMenuItem(
+                                                    text = { Text("${start + 1} - $end") },
+                                                    onClick = {
+                                                        showJumpMenu = false
+                                                        jumpToIssueIndex = start
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
+                            Spacer(modifier = Modifier.height(12.dp))
                             if (selectedTab == SeriesDetailTab.Books) {
                                 val volumes = detail?.detail?.volumes.orEmpty()
                                 LaunchedEffect(volumes, downloadedItemsBySeries.value) {
@@ -928,6 +984,8 @@ fun SeriesDetailScreenV2(
                                     // A book's chapters have no cover art of their own, so they
                                     // render as a jumpable list instead of a grid.
                                     isBook = Format.fromId(series?.format) == Format.Epub,
+                                    jumpToIndex = jumpToIssueIndex,
+                                    onJumpHandled = { jumpToIssueIndex = null },
                                     coverUrlFor = { chapter ->
                                         chapterCoverUrl(config, chapter.id)
                                             ?: series?.id?.let { seriesCoverUrl(config, it) }

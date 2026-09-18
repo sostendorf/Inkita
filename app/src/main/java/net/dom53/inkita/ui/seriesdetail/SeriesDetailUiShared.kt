@@ -84,6 +84,10 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 
 internal enum class SeriesDetailTab {
     Books,
@@ -978,7 +982,7 @@ internal fun SectionTab(
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.labelMedium,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                 color = contentColor,
                 maxLines = 1,
@@ -1025,11 +1029,15 @@ internal fun SectionTab(
  * detail screen's vertical scroll, and nesting a second vertical scroller there
  * breaks measurement.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun IssueGrid(
     chapters: List<net.dom53.inkita.data.api.dto.ChapterDto>,
     coverUrlFor: (net.dom53.inkita.data.api.dto.ChapterDto) -> String?,
     isBook: Boolean = false,
+    /** Index to scroll into view; cleared via [onJumpHandled] once done. */
+    jumpToIndex: Int? = null,
+    onJumpHandled: () -> Unit = {},
     downloadStates: Map<Int, DownloadState> = emptyMap(),
     onChapterClick: (net.dom53.inkita.data.api.dto.ChapterDto, Int) -> Unit = { _, _ -> },
     onToggleDownload: (net.dom53.inkita.data.api.dto.ChapterDto, Boolean) -> Unit = { _, _ -> },
@@ -1038,12 +1046,17 @@ internal fun IssueGrid(
     if (chapters.isEmpty()) return
     val indexed = chapters.withIndex().toList()
     if (isBook) {
+        val rowRequesters = remember(chapters.size) { indexed.associate { it.index to BringIntoViewRequester() } }
+        JumpEffect(jumpToIndex, onJumpHandled) { rowRequesters[it] }
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             indexed.forEach { (index, chapter) ->
                 IssueRow(
+                    modifier =
+                        rowRequesters[index]?.let { Modifier.bringIntoViewRequester(it) }
+                            ?: Modifier,
                     chapter = chapter,
                     index = index,
                     downloadState = downloadStates[chapter.id] ?: DownloadState.None,
@@ -1055,30 +1068,47 @@ internal fun IssueGrid(
         }
         return
     }
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        indexed.chunked(2).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                row.forEach { (index, chapter) ->
-                    IssueCard(
-                        chapter = chapter,
-                        index = index,
-                        coverUrl = coverUrlFor(chapter),
-                        downloadState = downloadStates[chapter.id] ?: DownloadState.None,
-                        onClick = { onChapterClick(chapter, index) },
-                        onToggleDownload = onToggleDownload,
-                        onUpdateProgress = onUpdateProgress,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                // Keeps a lone trailing card at half width instead of stretching it.
-                if (row.size == 1) {
-                    Box(modifier = Modifier.weight(1f))
+    // One column per ~150dp of width, so a tablet or landscape phone fills the
+    // row instead of stretching two cards across it.
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val columns = (maxWidth / 150.dp).toInt().coerceIn(2, 6)
+        val rowRequesters =
+            remember(chapters.size, columns) {
+                indexed.chunked(columns).indices.associateWith { BringIntoViewRequester() }
+            }
+        JumpEffect(jumpToIndex, onJumpHandled) { target -> rowRequesters[target / columns] }
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            indexed.chunked(columns).forEachIndexed { rowIndex, row ->
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .then(
+                                rowRequesters[rowIndex]?.let { Modifier.bringIntoViewRequester(it) }
+                                    ?: Modifier,
+                            ),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    row.forEach { (index, chapter) ->
+                        IssueCard(
+                            chapter = chapter,
+                            index = index,
+                            coverUrl = coverUrlFor(chapter),
+                            downloadState = downloadStates[chapter.id] ?: DownloadState.None,
+                            onClick = { onChapterClick(chapter, index) },
+                            onToggleDownload = onToggleDownload,
+                            onUpdateProgress = onUpdateProgress,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    // Pads the last row so a stray card keeps its column width
+                    // rather than stretching across the gap.
+                    repeat(columns - row.size) {
+                        Box(modifier = Modifier.weight(1f))
+                    }
                 }
             }
         }
@@ -1284,6 +1314,7 @@ private fun IssueActionsMenu(
  */
 @Composable
 private fun IssueRow(
+    modifier: Modifier = Modifier,
     chapter: net.dom53.inkita.data.api.dto.ChapterDto,
     index: Int,
     downloadState: DownloadState,
@@ -1304,7 +1335,7 @@ private fun IssueRow(
             ?: stringResource(R.string.series_detail_chapter_fallback, index + 1)
     Row(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .clip(shape)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
@@ -1349,5 +1380,20 @@ private fun IssueRow(
             onToggleDownload = onToggleDownload,
             onUpdateProgress = onUpdateProgress,
         )
+    }
+}
+
+/** Scrolls a requested index into view, then clears the request. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun JumpEffect(
+    jumpToIndex: Int?,
+    onJumpHandled: () -> Unit,
+    requesterFor: (Int) -> BringIntoViewRequester?,
+) {
+    LaunchedEffect(jumpToIndex) {
+        val target = jumpToIndex ?: return@LaunchedEffect
+        requesterFor(target)?.bringIntoView()
+        onJumpHandled()
     }
 }

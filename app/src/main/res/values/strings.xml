@@ -106,6 +106,9 @@
     <string name="series_detail_vol_short_plain">Vol.</string>
     <string name="series_detail_continue_vol_ch">Continue Vol. %1$s Pg. %2$d</string>
     <string name="series_detail_continue_ch">Continue Pg. %1$d</string>
+    <string name="series_detail_continue_issue">Continue Issue #%1$s</string>
+    <string name="series_detail_continue_chapter">Continue Ch. %1$s</string>
+    <string name="series_detail_jump_to">Jump to</string>
     <string name="series_detail_start_reading">Start reading</string>
     <string name="series_detail_chapter_fallback">Chapter %1$d</string>
     <string name="series_detail_pages_unavailable">Pages are not available.</string>
