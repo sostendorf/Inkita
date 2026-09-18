@@ -972,6 +972,7 @@ internal fun SectionTab(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier =
             Modifier
+                .width(IntrinsicSize.Max)
                 .clickable(onClick = onClick)
                 .padding(horizontal = 4.dp),
     ) {
@@ -1004,11 +1005,13 @@ internal fun SectionTab(
                 }
             }
         }
+        // Spans the whole tab -- label and count together -- rather than a fixed
+        // width that sat short of the count pill.
         Box(
             modifier =
                 Modifier
+                    .fillMaxWidth()
                     .height(3.dp)
-                    .width(if (selected) 72.dp else 0.dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(
                         if (selected) {

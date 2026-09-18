@@ -130,8 +130,8 @@ import androidx.compose.material.icons.filled.ArrowDropDown
  * issues, specials, related) and their callbacks into their own composables.
  */
 
-/** How many issues each "jump to" block covers. */
-private const val JUMP_BLOCK = 20
+/** Below this many issues, scrolling is quicker than opening a menu. */
+private const val JUMP_MIN_ITEMS = 5
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -871,7 +871,10 @@ fun SeriesDetailScreenV2(
                                 // Long runs of issues are tedious to scroll; this jumps
                                 // to a block of them without leaving the page.
                                 val jumpTarget = detail?.detail?.chapters.orEmpty()
-                                if (selectedTab == SeriesDetailTab.Chapters && jumpTarget.size > JUMP_BLOCK) {
+                                // Block size scales so the menu stays a readable length
+                                // instead of listing a hundred entries.
+                                val jumpBlock = if (jumpTarget.size > 100) 25 else 10
+                                if (selectedTab == SeriesDetailTab.Chapters && jumpTarget.size > JUMP_MIN_ITEMS) {
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Box {
                                         androidx.compose.material3.TextButton(
@@ -892,8 +895,8 @@ fun SeriesDetailScreenV2(
                                             expanded = showJumpMenu,
                                             onDismissRequest = { showJumpMenu = false },
                                         ) {
-                                            jumpTarget.indices.step(JUMP_BLOCK).forEach { start ->
-                                                val end = minOf(start + JUMP_BLOCK, jumpTarget.size)
+                                            jumpTarget.indices.step(jumpBlock).forEach { start ->
+                                                val end = minOf(start + jumpBlock, jumpTarget.size)
                                                 DropdownMenuItem(
                                                     text = { Text("${start + 1} - $end") },
                                                     onClick = {
