@@ -290,6 +290,13 @@
     <string name="reader_theme_sepia_high_contrast">Sepia (High Contrast)</string>
     <string name="reader_theme_gray">Gray</string>
     <!-- Series detail-->
+    <string name="series_detail_tab_books">Volumes</string>
+    <string name="series_detail_tab_chapters">Chapters</string>
+    <string name="series_detail_my_rating_label">My Rating</string>
+    <string name="series_detail_read_time_label">Read Time</string>
+    <string name="series_detail_status_title">Status</string>
+    <string name="series_detail_released_title">Released</string>
+    <string name="series_detail_chapter_count_short">%1$d ch</string>
     <string name="series_detail_detail">Detail</string>
     <string name="series_detail_share_series">Share series</string>
     <string name="series_detail_chapter_not_available">Chapter is not available for reading.</string>

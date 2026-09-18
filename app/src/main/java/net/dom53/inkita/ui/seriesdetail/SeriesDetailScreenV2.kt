@@ -108,6 +108,10 @@ import net.dom53.inkita.ui.reader.model.ReaderReturn
 import net.dom53.inkita.ui.seriesdetail.utils.cleanHtml
 import java.io.File
 import java.util.Locale
+import androidx.compose.material.icons.filled.ZoomOutMap
+import androidx.compose.material.icons.filled.LibraryAdd
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Favorite
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterialApi::class)
@@ -500,53 +504,153 @@ fun SeriesDetailScreenV2(
                     val series = detail?.series
                     val metadata = detail?.metadata
                     val coverUrl = series?.id?.let { seriesCoverUrl(config, it) }
+                    // Kavita extracts a dominant colour per cover; it tints the backdrop
+                    // so the page takes on the character of the book being viewed.
+                    val seriesAccent = parseSeriesColor(series?.primaryColor)
+                    val heroContinuePoint = detail?.continuePoint
+                    val heroReaderProgress = detail?.readerProgress
+                    val heroReadLabel =
+                        if (heroContinuePoint != null && detail?.hasProgress == true) {
+                            stringResource(id = net.dom53.inkita.R.string.series_detail_continue_ch, (heroContinuePoint.pagesRead ?: 0) + 1)
+                        } else {
+                            stringResource(id = net.dom53.inkita.R.string.series_detail_start_reading)
+                        }
+                    val openReaderAtContinuePoint: () -> Unit = {
+                        val chapterId = heroReaderProgress?.chapterId ?: heroContinuePoint?.id
+                        val volumeId = heroReaderProgress?.volumeId ?: heroContinuePoint?.volumeId
+                        val sid = detail?.series?.id ?: seriesId
+                        val fmt = detail?.series?.format
+                        if (chapterId == null || volumeId == null) {
+                            Toast
+                                .makeText(
+                                    context,
+                                    context.getString(net.dom53.inkita.R.string.general_not_implemented),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                        } else {
+                            val page = heroReaderProgress?.pageNum ?: heroContinuePoint?.pagesRead ?: 0
+                            onOpenReader(chapterId, page, sid, volumeId, fmt)
+                        }
+                    }
                     Box(
                         modifier =
                             Modifier
                                 .fillMaxSize()
                                 .pullRefresh(pullRefreshState),
                     ) {
-                        Column(
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 16.dp)
-                                    .verticalScroll(rememberScrollState()),
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.Top,
-                            ) {
-                                CoverImage(
-                                    coverUrl = coverUrl,
-                                    context = context,
-                                    modifier =
-                                        Modifier
-                                            .width(140.dp)
-                                            .aspectRatio(2f / 3f)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable { coverExpanded = true },
-                                )
-                                HeaderInfo(
-                                    seriesId = seriesId,
-                                    series = series,
-                                    metadata = metadata,
-                                    detail = detail,
-                                    context = context,
-                                    clipboardManager = clipboardManager,
-                                    onCopyToast = {
+                        SeriesBackdrop(coverUrl = coverUrl, accent = seriesAccent)
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            // Stays put while the page scrolls, so the title and the
+                            // headline numbers are always on screen.
+                            SeriesStickyBar(
+                                title =
+                                    series?.name?.ifBlank { null }
+                                        ?: context.getString(net.dom53.inkita.R.string.series_detail_series_fallback, seriesId),
+                                subtitle = series?.libraryName,
+                                coverUrl = coverUrl,
+                                ratingText = series?.userRating?.takeIf { it > 0f }?.let { "${it.toInt()}%" },
+                                readTimeText = formatHours(series?.avgHoursToRead),
+                                chapterCountText =
+                                    detail?.detail?.totalCount?.takeIf { it > 0 }?.let {
+                                        context.getString(net.dom53.inkita.R.string.series_detail_chapter_count_short, it)
+                                    },
+                                onTitleClick = {
+                                    val t = series?.name.orEmpty()
+                                    if (t.isNotBlank()) {
+                                        clipboardManager.setText(AnnotatedString(t))
                                         Toast
                                             .makeText(
                                                 context,
                                                 context.getString(net.dom53.inkita.R.string.general_copied_to_clipboard),
                                                 Toast.LENGTH_SHORT,
                                             ).show()
+                                    }
+                                },
+                            )
+                            Column(
+                                modifier =
+                                    Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 16.dp)
+                                        .verticalScroll(rememberScrollState()),
+                            ) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                val genreChips = metadata?.genres?.mapNotNull { it.title?.takeIf { t -> t.isNotBlank() } }.orEmpty()
+                                if (genreChips.isNotEmpty()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        genreChips.take(3).forEach { SeriesChip(text = it) }
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
+                                SeriesHeroRow(
+                                    coverUrl = coverUrl,
+                                    primaryAction = {
+                                        Button(
+                                            onClick = openReaderAtContinuePoint,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        ) {
+                                            Text(text = heroReadLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
                                     },
-                                    modifier = Modifier.weight(1f),
+                                    iconActions = {
+                                        HeroIconButton(
+                                            icon = if (detail?.wantToRead == true) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                            enabled = !offlineMode,
+                                            onClick = { viewModel.toggleWantToRead() },
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        HeroIconButton(
+                                            icon = Icons.Filled.LibraryAdd,
+                                            enabled = !offlineMode,
+                                            onClick = {
+                                                viewModel.loadCollections()
+                                                showCollectionDialog = true
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        HeroIconButton(
+                                            icon = Icons.Filled.ZoomOutMap,
+                                            onClick = { coverExpanded = true },
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    },
+                                    tiles = {
+                                        MetaTile(
+                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_tab_chapters),
+                                            value = detail?.detail?.totalCount?.toString(),
+                                        )
+                                        MetaTile(
+                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_tab_books),
+                                            value = detail?.detail?.volumes?.size?.takeIf { it > 0 }?.toString(),
+                                        )
+                                        MetaTile(
+                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_my_rating_label),
+                                            value = series?.userRating?.takeIf { it > 0f }?.let { "${it.toInt()}%" },
+                                            leadingIcon = Icons.Filled.Star,
+                                        )
+                                        MetaTile(
+                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_read_time_label),
+                                            value = formatHours(series?.avgHoursToRead),
+                                        )
+                                        MetaTile(
+                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_status_title),
+                                            value =
+                                                metadata?.publicationStatus?.let { status ->
+                                                    PublicationState.entries
+                                                        .firstOrNull { it.code == status }
+                                                        ?.let { context.getString(it.titleRes) }
+                                                },
+                                        )
+                                        MetaTile(
+                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_released_title),
+                                            value = metadata?.releaseYear?.takeIf { it > 0 }?.toString(),
+                                        )
+                                    },
                                 )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
                             ActionsRowV2(
                                 wantToRead = detail?.wantToRead == true,
                                 collectionsEnabled = !offlineMode,
@@ -654,29 +758,6 @@ fun SeriesDetailScreenV2(
                                 } else {
                                     stringResource(id = net.dom53.inkita.R.string.series_detail_start_reading)
                                 }
-                            Button(
-                                onClick = {
-                                    val chapterId = readerProgress?.chapterId ?: continuePoint?.id
-                                    val volumeId = readerProgress?.volumeId ?: continuePoint?.volumeId
-                                    val sid = detail?.series?.id ?: seriesId
-                                    val fmt = detail?.series?.format
-                                    if (chapterId == null || volumeId == null) {
-                                        Toast
-                                            .makeText(
-                                                context,
-                                                context.getString(net.dom53.inkita.R.string.general_not_implemented),
-                                                Toast.LENGTH_SHORT,
-                                            ).show()
-                                        return@Button
-                                    }
-                                    val page =
-                                        readerProgress?.pageNum ?: continuePoint?.pagesRead ?: 0
-                                    onOpenReader(chapterId, page, sid, volumeId, fmt)
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text(text = continueLabel)
-                            }
                             val booksCount = detail?.detail?.volumes?.size
                             val chaptersCount = detail?.detail?.chapters?.size
                             val specialsCount = detail?.detail?.specials?.size
@@ -1362,7 +1443,8 @@ fun SeriesDetailScreenV2(
                                     onOpenCollection = onOpenCollection,
                                 )
                             }
-                            Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(24.dp))
+                            }
                         }
                         PullRefreshIndicator(
                             refreshing = isRefreshing,
