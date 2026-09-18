@@ -42,4 +42,14 @@ interface SeriesRepository {
         pageNumber: Int,
         pageSize: Int,
     ): List<Series>
+
+    /**
+     * Every series the user can see, across all libraries — Kavita's "All Series".
+     * Distinct from [getSeriesForLibrary], which always pins a library filter and
+     * so cannot express "no library restriction".
+     */
+    suspend fun getAllSeries(
+        pageNumber: Int,
+        pageSize: Int,
+    ): List<Series>
 }

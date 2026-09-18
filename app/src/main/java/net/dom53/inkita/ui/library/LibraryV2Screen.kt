@@ -27,6 +27,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.CollectionsBookmark
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Update
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.LocalLibrary
@@ -101,6 +105,14 @@ fun LibraryV2Screen(
     onOpenSeries: (Int) -> Unit,
     initialCollectionId: Int? = null,
     initialCollectionName: String? = null,
+    /** Section the bottom bar asked for; re-applied whenever the tab changes. */
+    initialSection: LibraryV2Section? = null,
+    // These four left the bottom bar when it was cut to five tabs, so the drawer
+    // is now the only way to reach them.
+    onOpenDownloads: (() -> Unit)? = null,
+    onOpenHistory: (() -> Unit)? = null,
+    onOpenUpdates: (() -> Unit)? = null,
+    onOpenBrowse: (() -> Unit)? = null,
 ) {
     val viewModel: LibraryV2ViewModel =
         viewModel(
@@ -123,6 +135,13 @@ fun LibraryV2Screen(
         if (initialCollectionId != null) {
             viewModel.openCollectionFromExternal(initialCollectionId, initialCollectionName)
             presetApplied = true
+        }
+    }
+    // A collection deep link wins; otherwise follow the bottom bar. Keyed on the
+    // section so tapping a different tab switches even though the route is the same.
+    LaunchedEffect(initialSection) {
+        if (initialCollectionId == null && initialSection != null) {
+            viewModel.selectSection(initialSection)
         }
     }
     val context = LocalContext.current
@@ -213,13 +232,10 @@ fun LibraryV2Screen(
                 DrawerItem(
                     icon = Icons.Filled.LibraryBooks,
                     label = "All Series",
+                    selected = uiState.selectedSection == LibraryV2Section.LibrarySeries && uiState.selectedLibraryId == null,
                     onClick = {
-                        android.widget.Toast
-                            .makeText(
-                                context,
-                                "Not implemented yet",
-                                android.widget.Toast.LENGTH_SHORT,
-                            ).show()
+                        viewModel.ensureAllSeries()
+                        scope.launch { drawerState.close() }
                     },
                 )
                 DrawerItem(
@@ -231,6 +247,47 @@ fun LibraryV2Screen(
                         scope.launch { drawerState.close() }
                     },
                 )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                if (onOpenBrowse != null) {
+                    DrawerItem(
+                        icon = Icons.Filled.Language,
+                        label = "Browse",
+                        onClick = {
+                            onOpenBrowse()
+                            scope.launch { drawerState.close() }
+                        },
+                    )
+                }
+                if (onOpenUpdates != null) {
+                    DrawerItem(
+                        icon = Icons.Filled.Update,
+                        label = "Updates",
+                        onClick = {
+                            onOpenUpdates()
+                            scope.launch { drawerState.close() }
+                        },
+                    )
+                }
+                if (onOpenHistory != null) {
+                    DrawerItem(
+                        icon = Icons.Filled.History,
+                        label = "History",
+                        onClick = {
+                            onOpenHistory()
+                            scope.launch { drawerState.close() }
+                        },
+                    )
+                }
+                if (onOpenDownloads != null) {
+                    DrawerItem(
+                        icon = Icons.Filled.Download,
+                        label = "Downloads",
+                        onClick = {
+                            onOpenDownloads()
+                            scope.launch { drawerState.close() }
+                        },
+                    )
+                }
                 HorizontalDivider()
                 when {
                     uiState.isLoading -> {

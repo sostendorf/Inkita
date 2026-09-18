@@ -76,6 +76,7 @@ import net.dom53.inkita.ui.download.DownloadQueueScreen
 import net.dom53.inkita.ui.download.DownloadQueueViewModelFactory
 import net.dom53.inkita.ui.history.HistoryScreen
 import net.dom53.inkita.ui.library.LibraryV2Screen
+import net.dom53.inkita.ui.library.LibraryV2Section
 import net.dom53.inkita.ui.navigation.MainScreen
 import net.dom53.inkita.ui.reader.model.ReaderReturn
 import net.dom53.inkita.ui.reader.screen.ReaderScreen
@@ -280,8 +281,11 @@ fun InkitaApp(
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    val mainRoutes = MainScreen.items.map { it.route }
-    val isMainRoute = MainScreen.items.any { item -> currentRoute?.startsWith(item.route) == true }
+    val mainRoutes = MainScreen.allDestinations.map { it.route }
+    val isMainRoute = MainScreen.allDestinations.any { item -> currentRoute?.startsWith(item.route) == true }
+    // The four content tabs share the library destination, so which one is
+    // highlighted comes from the section argument rather than the route.
+    val currentSection = backStackEntry?.arguments?.getString("section")
     val config by appPreferences.configFlow.collectAsState(
         initial = AppConfig(serverUrl = "", apiKey = "", imageApiKey = "", userId = 0),
     )
@@ -409,11 +413,23 @@ fun InkitaApp(
                     if (isMainRoute) {
                         NavigationBar {
                             MainScreen.items.forEach { screen ->
-                                val selected = currentRoute?.startsWith(screen.route) == true
+                                val onLibraryRoute = currentRoute?.startsWith(MainScreen.LIBRARY_ROUTE) == true
+                                val selected =
+                                    if (screen.section != null) {
+                                        onLibraryRoute && currentSection == screen.section.name
+                                    } else {
+                                        currentRoute?.startsWith(screen.route) == true
+                                    }
                                 NavigationBarItem(
                                     selected = selected,
                                     onClick = {
-                                        navController.navigate(screen.route) {
+                                        val target =
+                                            if (screen.section != null) {
+                                                "${MainScreen.LIBRARY_ROUTE}?section=${screen.section.name}"
+                                            } else {
+                                                screen.route
+                                            }
+                                        navController.navigate(target) {
                                             popUpTo(navController.graph.startDestinationId) {
                                                 saveState = true
                                             }
@@ -444,7 +460,8 @@ fun InkitaApp(
                     modifier = Modifier.padding(innerPadding),
                 ) {
                     composable(
-                        route = "${MainScreen.LibraryV2.route}?collectionId={collectionId}&collectionName={collectionName}",
+                        route =
+                            "${MainScreen.LIBRARY_ROUTE}?collectionId={collectionId}&collectionName={collectionName}&section={section}",
                         arguments =
                             listOf(
                                 navArgument("collectionId") {
@@ -455,10 +472,18 @@ fun InkitaApp(
                                     type = NavType.StringType
                                     defaultValue = ""
                                 },
+                                navArgument("section") {
+                                    type = NavType.StringType
+                                    defaultValue = LibraryV2Section.Home.name
+                                },
                             ),
                     ) {
                         val collectionIdArg = it.arguments?.getInt("collectionId")?.takeIf { id -> id >= 0 }
                         val collectionNameArg = it.arguments?.getString("collectionName")?.takeIf { name -> name.isNotBlank() }
+                        val sectionArg =
+                            it.arguments?.getString("section")?.let { name ->
+                                LibraryV2Section.entries.firstOrNull { s -> s.name == name }
+                            }
                         LibraryV2Screen(
                             libraryRepository = libraryRepository,
                             seriesRepository = seriesRepository,
@@ -472,6 +497,11 @@ fun InkitaApp(
                             },
                             initialCollectionId = collectionIdArg,
                             initialCollectionName = collectionNameArg,
+                            initialSection = sectionArg,
+                            onOpenDownloads = { navController.navigate(MainScreen.Downloads.route) },
+                            onOpenHistory = { navController.navigate(MainScreen.History.route) },
+                            onOpenUpdates = { navController.navigate(MainScreen.Updates.route) },
+                            onOpenBrowse = { navController.navigate(MainScreen.Browse.route) },
                         )
                     }
                     composable(MainScreen.Updates.route) { UpdatesScreen() }

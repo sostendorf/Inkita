@@ -511,7 +511,23 @@ fun SeriesDetailScreenV2(
                     val heroReaderProgress = detail?.readerProgress
                     val heroReadLabel =
                         if (heroContinuePoint != null && detail?.hasProgress == true) {
-                            stringResource(id = net.dom53.inkita.R.string.series_detail_continue_ch, (heroContinuePoint.pagesRead ?: 0) + 1)
+                            val page = (heroContinuePoint.pagesRead ?: 0) + 1
+                            val volId = heroReaderProgress?.volumeId ?: heroContinuePoint.volumeId
+                            val volumeNumber =
+                                detail
+                                    ?.detail
+                                    ?.volumes
+                                    ?.firstOrNull { it.id == volId }
+                                    ?.let { volumeNumberText(it) }
+                            if (volumeNumber != null) {
+                                stringResource(
+                                    id = net.dom53.inkita.R.string.series_detail_continue_vol_ch,
+                                    volumeNumber,
+                                    page,
+                                )
+                            } else {
+                                stringResource(id = net.dom53.inkita.R.string.series_detail_continue_ch, page)
+                            }
                         } else {
                             stringResource(id = net.dom53.inkita.R.string.series_detail_start_reading)
                         }
@@ -734,30 +750,6 @@ fun SeriesDetailScreenV2(
                                 onGenreClick = { id, name -> onOpenBrowseGenre(id, name) },
                                 onTagClick = { id, name -> onOpenBrowseTag(id, name) },
                             )
-                            val continuePoint = detail?.continuePoint
-                            val readerProgress = detail?.readerProgress
-                            val continueLabel =
-                                if (continuePoint != null && detail?.hasProgress == true) {
-                                    val page = (continuePoint.pagesRead ?: 0) + 1
-                                    val volId = readerProgress?.volumeId ?: continuePoint.volumeId
-                                    val volumeNumber =
-                                        detail
-                                            ?.detail
-                                            ?.volumes
-                                            ?.firstOrNull { it.id == volId }
-                                            ?.let { volumeNumberText(it) }
-                                    if (volumeNumber != null) {
-                                        stringResource(
-                                            id = net.dom53.inkita.R.string.series_detail_continue_vol_ch,
-                                            volumeNumber,
-                                            page,
-                                        )
-                                    } else {
-                                        stringResource(id = net.dom53.inkita.R.string.series_detail_continue_ch, page)
-                                    }
-                                } else {
-                                    stringResource(id = net.dom53.inkita.R.string.series_detail_start_reading)
-                                }
                             val booksCount = detail?.detail?.volumes?.size
                             val chaptersCount = detail?.detail?.chapters?.size
                             val specialsCount = detail?.detail?.specials?.size
@@ -2395,126 +2387,6 @@ private fun SpecialsGridRow(
     }
 }
 
-@Composable
-private fun HeaderInfo(
-    seriesId: Int,
-    series: net.dom53.inkita.data.api.dto.SeriesDto?,
-    metadata: net.dom53.inkita.data.api.dto.SeriesMetadataDto?,
-    detail: InkitaDetailV2?,
-    context: android.content.Context,
-    clipboardManager: androidx.compose.ui.platform.ClipboardManager,
-    onCopyToast: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        val seriesTitle =
-            series?.name?.ifBlank { null }
-                ?: context.getString(net.dom53.inkita.R.string.series_detail_series_fallback, seriesId)
-        Text(
-            text = seriesTitle,
-            style = MaterialTheme.typography.titleLarge,
-            modifier =
-                Modifier.clickable {
-                    if (seriesTitle.isNotBlank()) {
-                        clipboardManager.setText(AnnotatedString(seriesTitle))
-                        onCopyToast()
-                    }
-                },
-        )
-        val writerNames =
-            metadata
-                ?.writers
-                ?.mapNotNull { it.name?.takeIf { name -> name.isNotBlank() } }
-                ?.joinToString(", ")
-                ?.ifBlank { null }
-        Text(
-            text =
-                stringResource(
-                    id = net.dom53.inkita.R.string.series_detail_author_label,
-                    writerNames ?: "-",
-                ),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text =
-                stringResource(
-                    id = net.dom53.inkita.R.string.series_detail_publication_label,
-                    metadata?.publicationStatus?.let { status ->
-                        PublicationState.entries.firstOrNull { it.code == status }?.let { state ->
-                            context.getString(state.titleRes)
-                        }
-                    } ?: "-",
-                ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text =
-                stringResource(
-                    id = net.dom53.inkita.R.string.series_detail_release_year_label,
-                    metadata?.releaseYear?.toString() ?: "-",
-                ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text =
-                stringResource(
-                    id = net.dom53.inkita.R.string.series_detail_avg_time_label,
-                    formatHours(detail?.timeLeft?.avgHours) ?: "-",
-                    formatHours(series?.avgHoursToRead) ?: "-",
-                ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text =
-                "${stringResource(id = net.dom53.inkita.R.string.general_words)}: " +
-                    (series?.wordCount?.let { formatCount(it) } ?: "-"),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text =
-                stringResource(
-                    id = net.dom53.inkita.R.string.series_detail_status_label,
-                    readStateLabel(
-                        context,
-                        unreadCount = detail?.detail?.unreadCount,
-                        totalCount = detail?.detail?.totalCount,
-                        hasProgress = detail?.hasProgress,
-                    ) ?: "-",
-                ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        val lastRead = series?.latestReadDate?.takeIf { it.isNotBlank() }
-        val lastUpdated = series?.lastChapterAdded?.takeIf { it.isNotBlank() }
-        Text(
-            text =
-                stringResource(
-                    id = net.dom53.inkita.R.string.series_detail_last_read_label,
-                    lastRead?.let { formatDate(it) } ?: "-",
-                ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text =
-                stringResource(
-                    id = net.dom53.inkita.R.string.series_detail_last_update_label,
-                    lastUpdated?.let { formatDate(it) } ?: "-",
-                ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
 private fun relatedSeriesCount(related: net.dom53.inkita.data.api.dto.RelatedSeriesDto): Int = relatedSeriesGroups(related).sumOf { it.items.size }
 
 private data class RelatedGroupUi(
@@ -2544,25 +2416,3 @@ private fun relatedSeriesGroups(related: net.dom53.inkita.data.api.dto.RelatedSe
     return groups.filter { it.items.isNotEmpty() }
 }
 
-private fun readStateLabel(
-    context: android.content.Context,
-    unreadCount: Int?,
-    totalCount: Int?,
-    hasProgress: Boolean?,
-): String? {
-    if (unreadCount == null || totalCount == null) {
-        return when (hasProgress) {
-            true -> context.resources.getString(net.dom53.inkita.R.string.general_reading_status_in_progress)
-            false -> context.resources.getString(net.dom53.inkita.R.string.general_reading_status_unread)
-            null -> null
-        }
-    }
-    if (totalCount <= 0) {
-        return null
-    }
-    return when {
-        unreadCount <= 0 -> context.resources.getString(net.dom53.inkita.R.string.general_reading_status_completed)
-        unreadCount >= totalCount -> context.resources.getString(net.dom53.inkita.R.string.general_reading_status_unread)
-        else -> context.resources.getString(net.dom53.inkita.R.string.general_reading_status_in_progress)
-    }
-}

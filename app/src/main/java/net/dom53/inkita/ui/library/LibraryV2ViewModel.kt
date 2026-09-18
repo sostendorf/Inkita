@@ -73,6 +73,29 @@ class LibraryV2ViewModel(
         if (section == LibraryV2Section.BrowsePeople) {
             ensurePeople()
         }
+        if (section == LibraryV2Section.LibrarySeries) {
+            ensureAllSeries()
+        }
+    }
+
+    /**
+     * Shows every series across all libraries. Clears any single-library
+     * selection first, which is what makes [loadLibrarySeries] issue the
+     * unfiltered query instead of a per-library one.
+     */
+    fun ensureAllSeries() {
+        _state.update {
+            it.copy(
+                selectedSection = LibraryV2Section.LibrarySeries,
+                selectedLibraryId = null,
+                selectedLibraryName = null,
+                librarySeries = emptyList(),
+                librarySeriesError = null,
+                librarySeriesPage = 1,
+                canLoadMoreLibrarySeries = true,
+            )
+        }
+        loadLibrarySeries(pageNumber = 1, reset = true)
     }
 
     fun openCollectionFromExternal(
@@ -665,7 +688,7 @@ class LibraryV2ViewModel(
         pageNumber: Int,
         reset: Boolean,
     ) {
-        val libraryId = _state.value.selectedLibraryId ?: return
+        val libraryId = _state.value.selectedLibraryId
         viewModelScope.launch {
             if (reset) {
                 _state.update { it.copy(isLibrarySeriesLoading = true, librarySeriesError = null) }
@@ -679,7 +702,14 @@ class LibraryV2ViewModel(
             } else {
                 _state.update { it.copy(isLibrarySeriesLoadingMore = true) }
             }
-            val result = runCatching { seriesRepository.getSeriesForLibrary(libraryId, pageNumber, 25) }
+            val result =
+                runCatching {
+                    if (libraryId == null) {
+                        seriesRepository.getAllSeries(pageNumber, 25)
+                    } else {
+                        seriesRepository.getSeriesForLibrary(libraryId, pageNumber, 25)
+                    }
+                }
             val pageItems = result.getOrDefault(emptyList())
             _state.update {
                 val merged =
