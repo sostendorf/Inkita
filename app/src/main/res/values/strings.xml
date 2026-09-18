@@ -291,6 +291,12 @@
     <string name="reader_theme_gray">Gray</string>
     <!-- Series detail-->
     <string name="series_detail_tab_books">Volumes</string>
+    <string name="series_detail_writers_title">Writer</string>
+    <string name="series_detail_publication_title">Publication</string>
+    <string name="series_detail_genres_title">Genres</string>
+    <string name="series_detail_tags_title">Tags</string>
+    <string name="series_detail_issue_count_short">%1$d issues</string>
+    <string name="series_detail_chapter_count_long">%1$d chapters</string>
     <string name="series_detail_tab_chapters">Chapters</string>
     <string name="series_detail_my_rating_label">My Rating</string>
     <string name="series_detail_read_time_label">Read Time</string>

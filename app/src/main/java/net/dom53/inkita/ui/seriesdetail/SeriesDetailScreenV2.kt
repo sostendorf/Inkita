@@ -111,7 +111,10 @@ import java.util.Locale
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material.icons.filled.LibraryAdd
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterialApi::class)
@@ -548,6 +551,65 @@ fun SeriesDetailScreenV2(
                             onOpenReader(chapterId, page, sid, volumeId, fmt)
                         }
                     }
+                    // Queues every chapter/issue in the series. Kept self-contained rather
+                    // than reusing the overflow-menu version, whose format flags are local
+                    // to that closure.
+                    val downloadWholeSeries: () -> Unit = {
+                        val fmt = Format.fromId(detail?.series?.format)
+                        val singlePageFormat = fmt == Format.Pdf || fmt == Format.Image || fmt == Format.Archive
+                        if (fmt == null || (!singlePageFormat && fmt != Format.Epub)) {
+                            Toast
+                                .makeText(
+                                    context,
+                                    context.getString(net.dom53.inkita.R.string.general_not_implemented),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                        } else {
+                            val queue =
+                                buildList {
+                                    detail?.detail?.volumes?.forEach { volume ->
+                                        volume.chapters?.forEach { chapter ->
+                                            add(chapter to (chapter.volumeId ?: volume.id))
+                                        }
+                                    }
+                                    detail?.detail?.chapters?.forEach { add(it to it.volumeId) }
+                                    detail?.detail?.specials?.forEach { add(it to it.volumeId) }
+                                    detail?.detail?.storylineChapters?.forEach { add(it to it.volumeId) }
+                                }.distinctBy { it.first.id }
+                                    .filter { singlePageFormat || (it.first.pages ?: 0) > 0 }
+                            if (queue.isEmpty()) {
+                                Toast
+                                    .makeText(
+                                        context,
+                                        context.getString(net.dom53.inkita.R.string.series_detail_pages_unavailable),
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                            } else {
+                                scope.launch {
+                                    val sid = detail?.series?.id ?: seriesId
+                                    queue.forEach { (chapter, volumeId) ->
+                                        val pages = if (singlePageFormat) 1 else chapter.pages ?: return@forEach
+                                        downloadManagerV2.enqueue(
+                                            DownloadRequestV2(
+                                                type = DownloadJobV2Entity.TYPE_CHAPTER,
+                                                format = formatKeyFor(detail?.series?.format),
+                                                seriesId = sid,
+                                                volumeId = volumeId,
+                                                chapterId = chapter.id,
+                                                pageCount = pages,
+                                            ),
+                                        )
+                                    }
+                                    Toast
+                                        .makeText(
+                                            context,
+                                            context.getString(net.dom53.inkita.R.string.download_queued),
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                }
+                            }
+                        }
+                    }
                     Box(
                         modifier =
                             Modifier
@@ -567,8 +629,18 @@ fun SeriesDetailScreenV2(
                                 ratingText = series?.userRating?.takeIf { it > 0f }?.let { "${it.toInt()}%" },
                                 readTimeText = formatHours(series?.avgHoursToRead),
                                 chapterCountText =
-                                    detail?.detail?.totalCount?.takeIf { it > 0 }?.let {
-                                        context.getString(net.dom53.inkita.R.string.series_detail_chapter_count_short, it)
+                                    detail?.detail?.totalCount?.takeIf { it > 0 }?.let { count ->
+                                        // Kavita calls these chapters for books and issues for
+                                        // everything else; EPUB is the only book format here.
+                                        val res =
+                                            if (net.dom53.inkita.domain.model.Format.fromId(series?.format) ==
+                                                net.dom53.inkita.domain.model.Format.Epub
+                                            ) {
+                                                net.dom53.inkita.R.string.series_detail_chapter_count_long
+                                            } else {
+                                                net.dom53.inkita.R.string.series_detail_issue_count_short
+                                            }
+                                        context.getString(res, count)
                                     },
                                 onTitleClick = {
                                     val t = series?.name.orEmpty()
@@ -591,24 +663,24 @@ fun SeriesDetailScreenV2(
                                         .verticalScroll(rememberScrollState()),
                             ) {
                                 Spacer(modifier = Modifier.height(12.dp))
-                                val genreChips = metadata?.genres?.mapNotNull { it.title?.takeIf { t -> t.isNotBlank() } }.orEmpty()
-                                if (genreChips.isNotEmpty()) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    ) {
-                                        genreChips.take(3).forEach { SeriesChip(text = it) }
-                                    }
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                }
                                 SeriesHeroRow(
                                     coverUrl = coverUrl,
+                                    onCoverClick = { coverExpanded = true },
                                     primaryAction = {
                                         Button(
                                             onClick = openReaderAtContinuePoint,
                                             modifier = Modifier.fillMaxWidth(),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                                         ) {
-                                            Text(text = heroReadLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(
+                                                text = heroReadLabel,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontSize = 13.sp,
+                                                lineHeight = 16.sp,
+                                                maxLines = 2,
+                                                textAlign = TextAlign.Center,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
                                         }
                                     },
                                     iconActions = {
@@ -628,41 +700,47 @@ fun SeriesDetailScreenV2(
                                             modifier = Modifier.weight(1f),
                                         )
                                         HeroIconButton(
-                                            icon = Icons.Filled.ZoomOutMap,
-                                            onClick = { coverExpanded = true },
+                                            icon = Icons.Filled.Download,
+                                            enabled = !offlineMode,
+                                            onClick = downloadWholeSeries,
                                             modifier = Modifier.weight(1f),
                                         )
                                     },
                                     tiles = {
                                         MetaTile(
-                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_tab_chapters),
-                                            value = detail?.detail?.totalCount?.toString(),
+                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_writers_title),
+                                            value =
+                                                metadata
+                                                    ?.writers
+                                                    ?.mapNotNull { it.name?.takeIf { n -> n.isNotBlank() } }
+                                                    ?.joinToString(", "),
                                         )
                                         MetaTile(
-                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_tab_books),
-                                            value = detail?.detail?.volumes?.size?.takeIf { it > 0 }?.toString(),
-                                        )
-                                        MetaTile(
-                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_my_rating_label),
-                                            value = series?.userRating?.takeIf { it > 0f }?.let { "${it.toInt()}%" },
-                                            leadingIcon = Icons.Filled.Star,
-                                        )
-                                        MetaTile(
-                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_read_time_label),
-                                            value = formatHours(series?.avgHoursToRead),
-                                        )
-                                        MetaTile(
-                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_status_title),
+                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_publication_title),
                                             value =
                                                 metadata?.publicationStatus?.let { status ->
                                                     PublicationState.entries
                                                         .firstOrNull { it.code == status }
                                                         ?.let { context.getString(it.titleRes) }
                                                 },
+                                            valueMaxLines = 1,
                                         )
                                         MetaTile(
-                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_released_title),
-                                            value = metadata?.releaseYear?.takeIf { it > 0 }?.toString(),
+                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_genres_title),
+                                            value =
+                                                metadata
+                                                    ?.genres
+                                                    ?.mapNotNull { it.title?.takeIf { t -> t.isNotBlank() } }
+                                                    ?.joinToString(", "),
+                                        )
+                                        MetaTile(
+                                            label = stringResource(id = net.dom53.inkita.R.string.series_detail_tags_title),
+                                            value =
+                                                metadata
+                                                    ?.tags
+                                                    ?.mapNotNull { it.title?.takeIf { t -> t.isNotBlank() } }
+                                                    ?.joinToString(", "),
+                                            valueMaxLines = 3,
                                         )
                                     },
                                 )

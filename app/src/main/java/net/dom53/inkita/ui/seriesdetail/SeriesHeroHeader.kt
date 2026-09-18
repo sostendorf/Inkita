@@ -202,55 +202,44 @@ fun SeriesStickyBar(
     }
 }
 
-/** A label-over-value tile. Translucent so the backdrop shows through. */
+/**
+ * A field tile: small muted label with its value underneath.
+ *
+ * Left-aligned and sized to its content rather than a fixed height, because the
+ * values here are names and lists (writers, genres, tags) that need the room —
+ * a centred fixed-height box wasted space and truncated anything interesting.
+ */
 @Composable
 fun MetaTile(
     label: String,
     value: String?,
     modifier: Modifier = Modifier,
-    leadingIcon: ImageVector? = null,
+    valueMaxLines: Int = 2,
 ) {
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
-                .heightIn(min = 68.dp)
                 .clip(TileShape)
-                .background(Color.White.copy(alpha = 0.08f))
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+                .background(Color.White.copy(alpha = 0.07f))
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = Color.White.copy(alpha = 0.92f),
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White.copy(alpha = 0.55f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
         )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            if (leadingIcon != null) {
-                Icon(
-                    imageVector = leadingIcon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.size(14.dp),
-                )
-            }
-            Text(
-                text = value?.takeIf { it.isNotBlank() } ?: "--",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.72f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-            )
-        }
+        Text(
+            text = value?.takeIf { it.isNotBlank() } ?: "--",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = Color.White.copy(alpha = 0.92f),
+            maxLines = valueMaxLines,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -282,6 +271,7 @@ fun SeriesChip(
 fun SeriesHeroRow(
     coverUrl: String?,
     modifier: Modifier = Modifier,
+    onCoverClick: (() -> Unit)? = null,
     primaryAction: @Composable () -> Unit = {},
     iconActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     tiles: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {},
@@ -303,7 +293,14 @@ fun SeriesHeroRow(
                         .fillMaxWidth()
                         .aspectRatio(2f / 3f)
                         .clip(CoverShape)
-                        .background(Color.White.copy(alpha = 0.06f)),
+                        .background(Color.White.copy(alpha = 0.06f))
+                        .then(
+                            if (onCoverClick != null) {
+                                Modifier.clickable { onCoverClick() }
+                            } else {
+                                Modifier
+                            },
+                        ),
             )
             primaryAction()
             Row(
