@@ -254,3 +254,6 @@ openapi.json
 
 # Local Android SDK location written by the cloud build session
 local.properties
+# Release signing key (kept out of version control)
+*.jks
+*.keystore

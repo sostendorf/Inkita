@@ -58,7 +58,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Off by default, as upstream has it. Build with -PminifyRelease=true to
+            // run R8 and shrink the APK (needed to get it under attachment size limits).
+            isMinifyEnabled = (project.findProperty("minifyRelease") as? String)?.toBoolean() ?: false
+            isShrinkResources = (project.findProperty("minifyRelease") as? String)?.toBoolean() ?: false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
