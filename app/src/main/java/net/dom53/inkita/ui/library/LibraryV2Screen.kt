@@ -133,7 +133,7 @@ fun LibraryV2Screen(
         )
     val uiState by viewModel.state.collectAsState()
     var presetApplied by remember { mutableStateOf(false) }
-    var showTypeFilter by remember { mutableStateOf(false) }
+    var showLibraryPicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialCollectionId) {
         if (presetApplied) return@LaunchedEffect
@@ -359,18 +359,21 @@ fun LibraryV2Screen(
                     text = topTitle,
                     style = MaterialTheme.typography.titleMedium,
                 )
-                // Kavita has no per-series "comic" flag, so this filters by the
-                // type of the library a series lives in.
-                if (uiState.selectedSection == LibraryV2Section.LibrarySeries && uiState.selectedLibraryId == null) {
+                // Kavita's libraries are the real division between comics, manga and
+                // books, so the filter lists them by name rather than inferring
+                // categories from library type codes.
+                if (uiState.selectedSection == LibraryV2Section.LibrarySeries && uiState.libraries.isNotEmpty()) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Box {
                         TextButton(
-                            onClick = { showTypeFilter = true },
+                            onClick = { showLibraryPicker = true },
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                         ) {
                             Text(
-                                text = uiState.selectedLibraryType?.label ?: stringResource(R.string.library_filter_all),
+                                text = uiState.selectedLibraryName ?: stringResource(R.string.library_filter_all),
                                 style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             Icon(
                                 imageVector = Icons.Filled.ArrowDropDown,
@@ -379,28 +382,25 @@ fun LibraryV2Screen(
                             )
                         }
                         DropdownMenu(
-                            expanded = showTypeFilter,
-                            onDismissRequest = { showTypeFilter = false },
+                            expanded = showLibraryPicker,
+                            onDismissRequest = { showLibraryPicker = false },
                         ) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.library_filter_all)) },
                                 onClick = {
-                                    showTypeFilter = false
-                                    viewModel.selectLibraryType(null)
+                                    showLibraryPicker = false
+                                    viewModel.ensureAllSeries()
                                 },
                             )
-                            // Only offer a type the server actually has libraries for.
-                            net.dom53.inkita.domain.model.LibraryType.entries
-                                .filter { type -> uiState.libraries.any { type.matches(it.type) } }
-                                .forEach { type ->
-                                    DropdownMenuItem(
-                                        text = { Text(type.label) },
-                                        onClick = {
-                                            showTypeFilter = false
-                                            viewModel.selectLibraryType(type)
-                                        },
-                                    )
-                                }
+                            uiState.libraries.forEach { library ->
+                                DropdownMenuItem(
+                                    text = { Text(library.name) },
+                                    onClick = {
+                                        showLibraryPicker = false
+                                        viewModel.selectLibrary(library)
+                                    },
+                                )
+                            }
                         }
                     }
                 }
