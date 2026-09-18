@@ -122,35 +122,6 @@ internal data class TabItem(
 )
 
 @Composable
-internal fun SectionChip(
-    label: String,
-    count: Int?,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val labelText = if (count != null) "$label $count" else label
-    AssistChip(
-        onClick = onClick,
-        label = { Text(labelText) },
-        colors =
-            androidx.compose.material3.AssistChipDefaults.assistChipColors(
-                containerColor =
-                    if (selected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    },
-                labelColor =
-                    if (selected) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-            ),
-    )
-}
-
-@Composable
 internal fun ChapterListV2(
     chapters: List<net.dom53.inkita.data.api.dto.ChapterDto>,
     config: AppConfig,

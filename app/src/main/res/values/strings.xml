@@ -158,6 +158,8 @@
     <string name="volume_detail_re_read">Re-read</string>
     <string name="volume_detail_start_reading">Start reading %1$s</string>
     <string name="volume_detail_continue_label">Continue %1$s Pg. %2$d</string>
+    <string name="volume_detail_continue_issue">Continue Issue #%1$s Pg. %2$d</string>
+    <string name="volume_detail_continue_chapter">Continue Ch. %1$s Pg. %2$d</string>
     <string name="general_time">Time</string>
     <string name="general_weekly">Weekly</string>
     <string name="general_queue">Queue</string>

@@ -350,6 +350,34 @@ fun VolumeDetailScreenV2(
                         ?: stringResource(id = net.dom53.inkita.R.string.series_detail_vol_short_plain)
                 val pagesRead = volume.pagesRead ?: 0
                 val pagesTotal = volume.pages
+                // A volume's pagesRead is cumulative across its issues, so walk the
+                // issues to find which one holds that page and how far into it we are.
+                // The button's tap handler wants the same answer, so it is worked out
+                // once here rather than twice.
+                val resumeTarget =
+                    remember(chapterList, pagesRead) {
+                        val safe = pagesRead.coerceAtLeast(0)
+                        if (chapterList.isEmpty()) {
+                            null
+                        } else if (safe <= 0) {
+                            chapterList.first() to 0
+                        } else {
+                            var cumulative = 0
+                            val found =
+                                chapterList.firstOrNull { ch ->
+                                    val count = ch.pages ?: 0
+                                    val next = cumulative + count
+                                    val within = count > 0 && safe < next
+                                    if (!within) cumulative = next
+                                    within
+                                }
+                            if (found != null) found to (safe - cumulative) else chapterList.first() to safe
+                        }
+                    }
+                val resumeIssueNumber =
+                    resumeTarget?.first?.let { ch ->
+                        ch.number?.takeIf { it.isNotBlank() } ?: ch.range?.takeIf { it.isNotBlank() }
+                    }
                 val buttonLabel =
                     when {
                         pagesTotal != null && pagesRead >= pagesTotal ->
@@ -358,6 +386,17 @@ fun VolumeDetailScreenV2(
                             stringResource(
                                 id = net.dom53.inkita.R.string.volume_detail_start_reading,
                                 volText,
+                            )
+                        resumeIssueNumber != null ->
+                            stringResource(
+                                id =
+                                    if (isEpub) {
+                                        net.dom53.inkita.R.string.volume_detail_continue_chapter
+                                    } else {
+                                        net.dom53.inkita.R.string.volume_detail_continue_issue
+                                    },
+                                resumeIssueNumber,
+                                (resumeTarget?.second ?: 0) + 1,
                             )
                         else ->
                             stringResource(
@@ -378,27 +417,7 @@ fun VolumeDetailScreenV2(
                                 ).show()
                             return@Button
                         }
-                        val pagesReadSafe = pagesRead.coerceAtLeast(0)
-                        val target =
-                            if (pagesReadSafe <= 0) {
-                                chapters.firstOrNull()?.let { it to 0 }
-                            } else {
-                                var cumulative = 0
-                                val found =
-                                    chapters.firstOrNull { ch ->
-                                        val count = ch.pages ?: 0
-                                        val next = cumulative + count
-                                        val within = count > 0 && pagesReadSafe < next
-                                        if (!within) cumulative = next
-                                        within
-                                    }
-                                if (found != null) {
-                                    val pageInChapter = pagesReadSafe - cumulative
-                                    found to pageInChapter
-                                } else {
-                                    chapters.firstOrNull()?.let { it to pagesReadSafe }
-                                }
-                            }
+                        val target = resumeTarget
                         val chapter = target?.first
                         val page = target?.second
                         if (chapter == null || page == null) {
@@ -424,7 +443,7 @@ fun VolumeDetailScreenV2(
                 }
                 val tabs =
                     listOf(
-                        TabItem(SeriesDetailTab.Books, chapterList.size),
+                        TabItem(SeriesDetailTab.Chapters, chapterList.size),
                     ).filter { it.count > 0 }
                 if (selectedChapter != null) {
                     val pdfDownloaded =
@@ -613,15 +632,15 @@ fun VolumeDetailScreenV2(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         tabs.forEach { tab ->
-                            SectionChip(
-                                label = tab.id.label,
+                            SectionTab(
+                                label = tab.id.labelFor(isBook = isEpub),
                                 count = tab.count,
                                 selected = selectedTab == tab.id,
                                 onClick = { selectedTab = tab.id },
                             )
                         }
                     }
-                    if (selectedTab == SeriesDetailTab.Books) {
+                    if (selectedTab == SeriesDetailTab.Chapters) {
                         ChapterListV2(
                             chapters = chapterList,
                             config = config,
