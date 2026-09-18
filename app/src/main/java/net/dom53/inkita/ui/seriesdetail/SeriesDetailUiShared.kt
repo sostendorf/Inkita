@@ -121,135 +121,6 @@ internal data class TabItem(
     val count: Int,
 )
 
-@Composable
-internal fun ChapterListV2(
-    chapters: List<net.dom53.inkita.data.api.dto.ChapterDto>,
-    config: AppConfig,
-    downloadStates: Map<Int, DownloadState> = emptyMap(),
-    onChapterClick: (net.dom53.inkita.data.api.dto.ChapterDto, Int) -> Unit = { _, _ -> },
-    onChapterLongPress: (net.dom53.inkita.data.api.dto.ChapterDto, Int) -> Unit = { _, _ -> },
-) {
-    if (chapters.isEmpty()) return
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        chapters.forEachIndexed { index, chapter ->
-            val coverUrl = chapterCoverUrl(config, chapter.id)
-            val title =
-                chapter.titleName?.takeIf { it.isNotBlank() }
-                    ?: chapter.title?.takeIf { it.isNotBlank() }
-                    ?: chapter.range?.takeIf { it.isNotBlank() }
-                    ?: "Chapter ${index + 1}"
-            val pagesRead = chapter.pagesRead ?: 0
-            val pagesTotal = chapter.pages ?: 0
-            Column(
-                modifier =
-                    Modifier
-                        .width(140.dp)
-                        .combinedClickable(
-                            onClick = { onChapterClick(chapter, index) },
-                            onLongClick = { onChapterLongPress(chapter, index) },
-                        ),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Box {
-                    CoverImage(
-                        coverUrl = coverUrl,
-                        context = androidx.compose.ui.platform.LocalContext.current,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(2f / 3f),
-                    )
-                    val downloadState = downloadStates[chapter.id]
-                    if (downloadState == DownloadState.Complete || downloadState == DownloadState.Partial) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(end = 6.dp, bottom = 10.dp)
-                                    .background(
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
-                                        shape = MaterialTheme.shapes.small,
-                                    ).padding(4.dp),
-                        ) {
-                            Icon(
-                                imageVector =
-                                    if (downloadState == DownloadState.Complete) {
-                                        Icons.Filled.DownloadDone
-                                    } else {
-                                        Icons.Filled.Downloading
-                                    },
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp),
-                            )
-                        }
-                    }
-                    if (pagesRead == 0) {
-                        // Read colour outside the draw scope: MaterialTheme is composable-only.
-                        val cornerFlagColor = MaterialTheme.colorScheme.primary
-                        Canvas(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(2f / 3f),
-                        ) {
-                            val sizePx = 26.dp.toPx()
-                            val path =
-                                Path().apply {
-                                    moveTo(size.width - sizePx, 0f)
-                                    lineTo(size.width, 0f)
-                                    lineTo(size.width, sizePx)
-                                    close()
-                                }
-                            drawPath(
-                                path = path,
-                                color = cornerFlagColor,
-                            )
-                        }
-                    }
-                    if (pagesTotal > 0 && pagesRead in 1 until pagesTotal) {
-                        val progress =
-                            (pagesRead.toFloat() / pagesTotal.toFloat()).coerceIn(0f, 1f)
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(6.dp)
-                                    .align(Alignment.BottomStart)
-                                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
-                        )
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth(progress)
-                                    .height(6.dp)
-                                    .align(Alignment.BottomStart)
-                                    .background(MaterialTheme.colorScheme.primary),
-                        )
-                    }
-                }
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = "Ch. ${index + 1}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 internal fun ChapterCompactList(
@@ -1031,6 +902,7 @@ internal fun IssueGrid(
                     modifier =
                         rowRequesters[index]?.let { Modifier.bringIntoViewRequester(it) }
                             ?: Modifier,
+                    isBook = isBook,
                     chapter = chapter,
                     index = index,
                     downloadState = downloadStates[chapter.id] ?: DownloadState.None,
@@ -1070,6 +942,7 @@ internal fun IssueGrid(
                         IssueCard(
                             chapter = chapter,
                             index = index,
+                            isBook = isBook,
                             coverUrl = coverUrlFor(chapter),
                             downloadState = downloadStates[chapter.id] ?: DownloadState.None,
                             onClick = { onChapterClick(chapter, index) },
@@ -1093,6 +966,7 @@ internal fun IssueGrid(
 private fun IssueCard(
     chapter: net.dom53.inkita.data.api.dto.ChapterDto,
     index: Int,
+    isBook: Boolean,
     coverUrl: String?,
     downloadState: DownloadState,
     onClick: () -> Unit,
@@ -1105,7 +979,10 @@ private fun IssueCard(
     val isRead = pagesTotal > 0 && pagesRead >= pagesTotal
     val isPartiallyRead = pagesRead in 1 until pagesTotal
     val isDownloaded = downloadState == DownloadState.Complete || downloadState == DownloadState.Partial
-    val label = stringResource(R.string.series_detail_chapter_fallback, index + 1)
+    val label = stringResource(
+            if (isBook) R.string.series_detail_chapter_fallback else R.string.series_detail_issue_fallback,
+            index + 1,
+        )
     var menuOpen by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
 
@@ -1169,7 +1046,7 @@ private fun IssueCard(
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color =
                     if (isRead) {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -1289,6 +1166,7 @@ private fun IssueActionsMenu(
 @Composable
 private fun IssueRow(
     modifier: Modifier = Modifier,
+    isBook: Boolean = false,
     chapter: net.dom53.inkita.data.api.dto.ChapterDto,
     index: Int,
     downloadState: DownloadState,
@@ -1319,7 +1197,10 @@ private fun IssueRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = stringResource(R.string.series_detail_chapter_fallback, index + 1),
+            text = stringResource(
+            if (isBook) R.string.series_detail_chapter_fallback else R.string.series_detail_issue_fallback,
+            index + 1,
+        ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
