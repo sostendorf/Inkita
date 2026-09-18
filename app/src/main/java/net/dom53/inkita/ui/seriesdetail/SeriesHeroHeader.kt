@@ -234,9 +234,11 @@ fun MetaTile(
         )
         Text(
             text = value?.takeIf { it.isNotBlank() } ?: "--",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = Color.White.copy(alpha = 0.92f),
+            style = MaterialTheme.typography.bodySmall,
+            fontSize = 12.sp,
+            lineHeight = 15.sp,
+            fontWeight = FontWeight.Normal,
+            color = Color.White.copy(alpha = 0.88f),
             maxLines = valueMaxLines,
             overflow = TextOverflow.Ellipsis,
         )

@@ -95,15 +95,21 @@ internal enum class SeriesDetailTab {
     ;
 
     val label: String
-        get() =
-            when (this) {
-                Books -> "Books"
-                Chapters -> "Chapters"
-                Specials -> "Specials"
-                Related -> "Related"
-                Recommendations -> "Recommendations"
-                Reviews -> "Reviews"
-            }
+        get() = labelFor(isBook = true)
+
+    /**
+     * Comics and manga are shelved as volumes of issues; only an EPUB is a book
+     * of chapters. Kavita words it the same way, so the tabs follow the format.
+     */
+    fun labelFor(isBook: Boolean): String =
+        when (this) {
+            Books -> if (isBook) "Books" else "Volumes"
+            Chapters -> if (isBook) "Chapters" else "Issues"
+            Specials -> "Specials"
+            Related -> "Related"
+            Recommendations -> "Recommendations"
+            Reviews -> "Reviews"
+        }
 }
 
 internal data class TabItem(
@@ -1023,6 +1029,7 @@ internal fun SectionTab(
 internal fun IssueGrid(
     chapters: List<net.dom53.inkita.data.api.dto.ChapterDto>,
     coverUrlFor: (net.dom53.inkita.data.api.dto.ChapterDto) -> String?,
+    isBook: Boolean = false,
     downloadStates: Map<Int, DownloadState> = emptyMap(),
     onChapterClick: (net.dom53.inkita.data.api.dto.ChapterDto, Int) -> Unit = { _, _ -> },
     onToggleDownload: (net.dom53.inkita.data.api.dto.ChapterDto, Boolean) -> Unit = { _, _ -> },
@@ -1030,6 +1037,24 @@ internal fun IssueGrid(
 ) {
     if (chapters.isEmpty()) return
     val indexed = chapters.withIndex().toList()
+    if (isBook) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            indexed.forEach { (index, chapter) ->
+                IssueRow(
+                    chapter = chapter,
+                    index = index,
+                    downloadState = downloadStates[chapter.id] ?: DownloadState.None,
+                    onClick = { onChapterClick(chapter, index) },
+                    onToggleDownload = onToggleDownload,
+                    onUpdateProgress = onUpdateProgress,
+                )
+            }
+        }
+        return
+    }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1198,5 +1223,131 @@ private fun IssueCard(
                 }
             }
         }
+    }
+}
+
+/**
+ * The per-issue actions, shared by the grid card and the book chapter row.
+ */
+@Composable
+private fun IssueActionsMenu(
+    chapter: net.dom53.inkita.data.api.dto.ChapterDto,
+    isRead: Boolean,
+    isDownloaded: Boolean,
+    pagesTotal: Int,
+    onToggleDownload: (net.dom53.inkita.data.api.dto.ChapterDto, Boolean) -> Unit,
+    onUpdateProgress: (net.dom53.inkita.data.api.dto.ChapterDto, Int) -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(36.dp)) {
+            Icon(
+                imageVector = Icons.Filled.MoreVert,
+                contentDescription = stringResource(R.string.series_detail_issue_actions),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        stringResource(
+                            if (isRead) R.string.series_detail_mark_unread else R.string.series_detail_mark_read,
+                        ),
+                    )
+                },
+                onClick = {
+                    menuOpen = false
+                    onUpdateProgress(chapter, if (isRead) 0 else pagesTotal)
+                },
+            )
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        stringResource(
+                            if (isDownloaded) R.string.series_detail_delete_download else R.string.series_detail_download_issue,
+                        ),
+                    )
+                },
+                onClick = {
+                    menuOpen = false
+                    onToggleDownload(chapter, isDownloaded)
+                },
+            )
+        }
+    }
+}
+
+/**
+ * A book chapter: title and state, no cover art, tap to jump straight to it.
+ */
+@Composable
+private fun IssueRow(
+    chapter: net.dom53.inkita.data.api.dto.ChapterDto,
+    index: Int,
+    downloadState: DownloadState,
+    onClick: () -> Unit,
+    onToggleDownload: (net.dom53.inkita.data.api.dto.ChapterDto, Boolean) -> Unit,
+    onUpdateProgress: (net.dom53.inkita.data.api.dto.ChapterDto, Int) -> Unit,
+) {
+    val pagesRead = chapter.pagesRead ?: 0
+    val pagesTotal = chapter.pages ?: 0
+    val isRead = pagesTotal > 0 && pagesRead >= pagesTotal
+    val isCurrent = pagesRead in 1 until pagesTotal
+    val isDownloaded = downloadState == DownloadState.Complete || downloadState == DownloadState.Partial
+    val shape = RoundedCornerShape(10.dp)
+    val title =
+        chapter.titleName?.takeIf { it.isNotBlank() }
+            ?: chapter.title?.takeIf { it.isNotBlank() }
+            ?: chapter.range?.takeIf { it.isNotBlank() }
+            ?: stringResource(R.string.series_detail_chapter_fallback, index + 1)
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .clickable(onClick = onClick)
+                .padding(start = 12.dp, end = 2.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.series_detail_chapter_fallback, index + 1),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            modifier = Modifier.width(80.dp),
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            color =
+                when {
+                    isCurrent -> MaterialTheme.colorScheme.primary
+                    isRead -> MaterialTheme.colorScheme.onSurfaceVariant
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (isDownloaded) {
+            Icon(
+                imageVector = Icons.Filled.DownloadDone,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        IssueActionsMenu(
+            chapter = chapter,
+            isRead = isRead,
+            isDownloaded = isDownloaded,
+            pagesTotal = pagesTotal,
+            onToggleDownload = onToggleDownload,
+            onUpdateProgress = onUpdateProgress,
+        )
     }
 }

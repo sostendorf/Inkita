@@ -115,6 +115,9 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterialApi::class)
@@ -288,13 +291,84 @@ fun SeriesDetailScreenV2(
         Column(
             modifier = Modifier.fillMaxSize(),
         ) {
+            // One bar instead of two: the back arrow and overflow menu sat in an
+            // otherwise empty strip above the title bar, so the title, library and
+            // issue count moved up into it.
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(end = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.Filled.ArrowBack, contentDescription = null)
+                }
+                if (hasDetail) {
+                    val barSeries = uiState.detail?.series
+                    val barCover = barSeries?.id?.let { seriesCoverUrl(config, it) }
+                    AsyncImage(
+                        model = barCover,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier =
+                            Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(6.dp)),
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        val barTitle =
+                            barSeries?.name?.ifBlank { null }
+                                ?: context.getString(net.dom53.inkita.R.string.series_detail_series_fallback, seriesId)
+                        Text(
+                            text = barTitle,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            // Tap-to-copy came from the bar this one replaced.
+                            modifier =
+                                Modifier.clickable {
+                                    if (barTitle.isNotBlank()) {
+                                        clipboardManager.setText(AnnotatedString(barTitle))
+                                        Toast
+                                            .makeText(
+                                                context,
+                                                context.getString(net.dom53.inkita.R.string.general_copied_to_clipboard),
+                                                Toast.LENGTH_SHORT,
+                                            ).show()
+                                    }
+                                },
+                        )
+                        val barLibrary = barSeries?.libraryName
+                        if (!barLibrary.isNullOrBlank()) {
+                            Text(
+                                text = barLibrary,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    uiState.detail?.detail?.totalCount?.takeIf { it > 0 }?.let { count ->
+                        val res =
+                            if (Format.fromId(barSeries?.format) == Format.Epub) {
+                                net.dom53.inkita.R.string.series_detail_chapter_count_long
+                            } else {
+                                net.dom53.inkita.R.string.series_detail_issue_count_short
+                            }
+                        Text(
+                            text = context.getString(res, count),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
                 Box {
                     IconButton(onClick = { showMenu = true }) {
@@ -561,41 +635,6 @@ fun SeriesDetailScreenV2(
                         Column(modifier = Modifier.fillMaxSize()) {
                             // Stays put while the page scrolls, so the title and the
                             // headline numbers are always on screen.
-                            SeriesStickyBar(
-                                title =
-                                    series?.name?.ifBlank { null }
-                                        ?: context.getString(net.dom53.inkita.R.string.series_detail_series_fallback, seriesId),
-                                subtitle = series?.libraryName,
-                                coverUrl = coverUrl,
-                                ratingText = series?.userRating?.takeIf { it > 0f }?.let { "${it.toInt()}%" },
-                                readTimeText = formatHours(series?.avgHoursToRead),
-                                chapterCountText =
-                                    detail?.detail?.totalCount?.takeIf { it > 0 }?.let { count ->
-                                        // Kavita calls these chapters for books and issues for
-                                        // everything else; EPUB is the only book format here.
-                                        val res =
-                                            if (net.dom53.inkita.domain.model.Format.fromId(series?.format) ==
-                                                net.dom53.inkita.domain.model.Format.Epub
-                                            ) {
-                                                net.dom53.inkita.R.string.series_detail_chapter_count_long
-                                            } else {
-                                                net.dom53.inkita.R.string.series_detail_issue_count_short
-                                            }
-                                        context.getString(res, count)
-                                    },
-                                onTitleClick = {
-                                    val t = series?.name.orEmpty()
-                                    if (t.isNotBlank()) {
-                                        clipboardManager.setText(AnnotatedString(t))
-                                        Toast
-                                            .makeText(
-                                                context,
-                                                context.getString(net.dom53.inkita.R.string.general_copied_to_clipboard),
-                                                Toast.LENGTH_SHORT,
-                                            ).show()
-                                    }
-                                },
-                            )
                             Column(
                                 modifier =
                                     Modifier
@@ -611,13 +650,15 @@ fun SeriesDetailScreenV2(
                                         Button(
                                             onClick = openReaderAtContinuePoint,
                                             modifier = Modifier.fillMaxWidth(),
+                                            // Matches the tile radius; the default Button shape is a pill.
+                                            shape = RoundedCornerShape(10.dp),
                                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                                         ) {
                                             Text(
                                                 text = heroReadLabel,
                                                 style = MaterialTheme.typography.labelLarge,
-                                                fontSize = 13.sp,
-                                                lineHeight = 16.sp,
+                                                fontSize = 12.sp,
+                                                lineHeight = 15.sp,
                                                 maxLines = 2,
                                                 textAlign = TextAlign.Center,
                                                 overflow = TextOverflow.Ellipsis,
@@ -799,7 +840,11 @@ fun SeriesDetailScreenV2(
                             ) {
                                 tabs.forEach { tab ->
                                     SectionTab(
-                                        label = tab.id.label,
+                                        label =
+                                            tab.id.labelFor(
+                                                isBook =
+                                                    Format.fromId(series?.format) == Format.Epub,
+                                            ),
                                         count = tab.count,
                                         selected = selectedTab == tab.id,
                                         onClick = { selectedTab = tab.id },
@@ -880,6 +925,9 @@ fun SeriesDetailScreenV2(
                                 }
                                 IssueGrid(
                                     chapters = chapters,
+                                    // A book's chapters have no cover art of their own, so they
+                                    // render as a jumpable list instead of a grid.
+                                    isBook = Format.fromId(series?.format) == Format.Epub,
                                     coverUrlFor = { chapter ->
                                         chapterCoverUrl(config, chapter.id)
                                             ?: series?.id?.let { seriesCoverUrl(config, it) }
@@ -2101,6 +2149,7 @@ private fun ActionsRowV2(
         FilledTonalButton(
             onClick = onOpenCollections,
             enabled = collectionsEnabled,
+            shape = RoundedCornerShape(10.dp),
             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
             colors =
                 ButtonDefaults.filledTonalButtonColors(
@@ -2114,11 +2163,15 @@ private fun ActionsRowV2(
                 modifier = Modifier.size(18.dp),
             )
             Spacer(modifier = Modifier.width(4.dp))
-            Text(stringResource(net.dom53.inkita.R.string.general_collections))
+            Text(
+                text = stringResource(net.dom53.inkita.R.string.general_collections),
+                style = MaterialTheme.typography.labelMedium,
+            )
         }
         FilledTonalButton(
             onClick = onToggleWant,
             enabled = wantToReadEnabled,
+            shape = RoundedCornerShape(10.dp),
             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
             colors =
                 ButtonDefaults.filledTonalButtonColors(
@@ -2132,7 +2185,10 @@ private fun ActionsRowV2(
                 modifier = Modifier.size(18.dp),
             )
             Spacer(modifier = Modifier.width(4.dp))
-            Text(stringResource(net.dom53.inkita.R.string.general_want_to_read))
+            Text(
+                text = stringResource(net.dom53.inkita.R.string.general_want_to_read),
+                style = MaterialTheme.typography.labelMedium,
+            )
         }
         IconButton(onClick = onOpenWeb) {
             Icon(Icons.Filled.Public, contentDescription = stringResource(net.dom53.inkita.R.string.general_open_in_browser))
