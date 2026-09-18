@@ -12,6 +12,7 @@ import net.dom53.inkita.data.api.dto.SortOptionDto
 import net.dom53.inkita.data.mapper.toDomain
 import net.dom53.inkita.data.mapper.toFilterV2Dto
 import net.dom53.inkita.domain.model.RecentlyUpdatedSeriesItem
+import net.dom53.inkita.domain.model.SearchHit
 import net.dom53.inkita.domain.model.Series
 import net.dom53.inkita.domain.model.filter.KavitaSortField
 import net.dom53.inkita.domain.model.filter.SeriesQuery
@@ -405,5 +406,39 @@ class SeriesRepositoryImpl(
         val body = response.body().orEmpty()
         val domain = body.map { it.toDomain() }
         return cacheManager.enrichThumbnails(domain)
+    }
+
+    override suspend fun searchSeries(query: String): List<SearchHit> {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return emptyList()
+
+        val config = appPreferences.configFlow.first()
+        if (!config.isConfigured) return emptyList()
+        if (!NetworkUtils.isOnline(context)) throw IOException("Offline")
+
+        val api =
+            KavitaApiFactory.createAuthenticated(
+                baseUrl = config.serverUrl,
+                apiKey = config.apiKey,
+            )
+        val response = api.search(trimmed)
+        if (!response.isSuccessful) {
+            throw Exception("Search failed: HTTP ${response.code()} ${response.message()}")
+        }
+        return response
+            .body()
+            ?.series
+            .orEmpty()
+            .map { hit ->
+                SearchHit(
+                    seriesId = hit.seriesId,
+                    name =
+                        hit.name?.takeIf { it.isNotBlank() }
+                            ?: hit.localizedName?.takeIf { it.isNotBlank() }
+                            ?: hit.originalName.orEmpty(),
+                    libraryName = hit.libraryName,
+                    format = hit.format,
+                )
+            }
     }
 }

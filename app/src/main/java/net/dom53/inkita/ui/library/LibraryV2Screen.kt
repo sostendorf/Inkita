@@ -96,6 +96,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.Search
 
 @Composable
 fun LibraryV2Screen(
@@ -117,6 +118,7 @@ fun LibraryV2Screen(
     onOpenHistory: (() -> Unit)? = null,
     onOpenUpdates: (() -> Unit)? = null,
     onOpenBrowse: (() -> Unit)? = null,
+    onOpenSearch: (() -> Unit)? = null,
 ) {
     val viewModel: LibraryV2ViewModel =
         viewModel(
@@ -402,6 +404,15 @@ fun LibraryV2Screen(
                                 )
                             }
                         }
+                    }
+                }
+                if (onOpenSearch != null) {
+                    Spacer(modifier = Modifier.weight(1f))
+                    IconButton(onClick = onOpenSearch) {
+                        Icon(
+                            imageVector = Icons.Filled.Search,
+                            contentDescription = stringResource(R.string.search_title),
+                        )
                     }
                 }
             }

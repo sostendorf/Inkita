@@ -295,6 +295,11 @@
     <!-- Series detail-->
     <string name="library_filter_all">All</string>
     <string name="library_filter_type">Choose library</string>
+    <string name="search_placeholder">Search all titles</string>
+    <string name="search_clear">Clear</string>
+    <string name="search_prompt">Type to search your libraries</string>
+    <string name="search_no_results">No titles match \u201c%1$s\u201d</string>
+    <string name="search_title">Search</string>
     <string name="series_detail_tab_books">Volumes</string>
     <string name="series_detail_issue_actions">Issue actions</string>
     <string name="series_detail_mark_read">Mark as read</string>

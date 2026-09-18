@@ -80,6 +80,7 @@ import net.dom53.inkita.ui.library.LibraryV2Section
 import net.dom53.inkita.ui.navigation.MainScreen
 import net.dom53.inkita.ui.reader.model.ReaderReturn
 import net.dom53.inkita.ui.reader.screen.ReaderScreen
+import net.dom53.inkita.ui.search.SearchScreen
 import net.dom53.inkita.ui.seriesdetail.SeriesDetailScreenV2
 import net.dom53.inkita.ui.settings.SettingsScreen
 import net.dom53.inkita.ui.theme.InkitaTheme
@@ -502,6 +503,15 @@ fun InkitaApp(
                             onOpenHistory = { navController.navigate(MainScreen.History.route) },
                             onOpenUpdates = { navController.navigate(MainScreen.Updates.route) },
                             onOpenBrowse = { navController.navigate(MainScreen.Browse.route) },
+                            onOpenSearch = { navController.navigate("search") },
+                        )
+                    }
+                    composable("search") {
+                        SearchScreen(
+                            seriesRepository = seriesRepository,
+                            appPreferences = appPreferences,
+                            onOpenSeries = { id -> navController.navigate("series/$id") },
+                            onBack = { navController.popBackStack() },
                         )
                     }
                     composable(MainScreen.Updates.route) { UpdatesScreen() }

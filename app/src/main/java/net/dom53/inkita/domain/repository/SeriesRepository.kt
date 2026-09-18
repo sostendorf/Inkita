@@ -1,6 +1,7 @@
 package net.dom53.inkita.domain.repository
 
 import net.dom53.inkita.domain.model.RecentlyUpdatedSeriesItem
+import net.dom53.inkita.domain.model.SearchHit
 import net.dom53.inkita.domain.model.Series
 import net.dom53.inkita.domain.model.filter.SeriesQuery
 
@@ -52,4 +53,7 @@ interface SeriesRepository {
         pageNumber: Int,
         pageSize: Int,
     ): List<Series>
+
+    /** Series matching [query] across every library the user can see. */
+    suspend fun searchSeries(query: String): List<SearchHit>
 }

@@ -25,6 +25,7 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Query
 import retrofit2.http.Streaming
+import net.dom53.inkita.data.api.dto.SearchResultGroupDto
 
 @Suppress("TooManyFunctions")
 interface KavitaApi {
@@ -58,6 +59,17 @@ interface KavitaApi {
     suspend fun getOwnedCollections(
         @Query("ownedOnly") ownedOnly: Boolean = true,
     ): Response<List<CollectionDto>>
+
+    /**
+     * Full-text search across the server. `includeChapterAndFiles` is off: the
+     * app searches for series, and leaving it on makes the server do noticeably
+     * more work per keystroke.
+     */
+    @GET("api/Search/search")
+    suspend fun search(
+        @Query("queryString") queryString: String,
+        @Query("includeChapterAndFiles") includeChapterAndFiles: Boolean = false,
+    ): Response<SearchResultGroupDto>
 
     @GET("api/Collection/all-series")
     suspend fun getCollectionsForSeries(
